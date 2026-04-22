@@ -1,0 +1,495 @@
+/***************************************
+ * FINAL LULC ANALYSIS — GOOGLE EARTH ENGINE
+ * States: Punjab (India) & Uttarakhand (India)
+ * Years:  2016, 2020, 2025
+ * Data:   Dynamic World V1 + GRIP Global Roads
+ ***************************************/
+
+
+// ============================================================
+// 1. LOAD BOUNDARY DATA
+// ============================================================
+
+var districts = ee.FeatureCollection('FAO/GAUL_SIMPLIFIED_500m/2015/level2');
+
+// Filter to India only to avoid name conflicts (e.g., Punjab, Pakistan)
+var punjab = districts
+  .filter(ee.Filter.eq('ADM0_NAME', 'India'))
+  .filter(ee.Filter.eq('ADM1_NAME', 'Punjab'));
+
+var uttarakhand = districts
+  .filter(ee.Filter.eq('ADM0_NAME', 'India'))
+  .filter(ee.Filter.eq('ADM1_NAME', 'Uttarakhand'));
+
+// Debug: confirm correct states loaded
+print('Punjab district count (should be 22):', punjab.size());
+print('Uttarakhand district count (should be 13):', uttarakhand.size());
+
+
+// ============================================================
+// 2. DYNAMIC WORLD — LULC CLASS LABELS & VISUALIZATION
+// ============================================================
+
+// Dynamic World class index → label mapping
+// 0: Water       1: Trees       2: Grass        3: Flooded Veg
+// 4: Crops       5: Shrub/Scrub 6: Built Area   7: Bare Ground
+// 8: Snow/Ice
+
+var classLabels = [
+  'Water', 'Trees', 'Grass', 'Flooded Veg',
+  'Crops', 'Shrub/Scrub', 'Built Area', 'Bare Ground', 'Snow/Ice'
+];
+
+var vis = {
+  min: 0,
+  max: 8,
+  palette: [
+    '#419BDF', // Water
+    '#397D49', // Trees
+    '#88B053', // Grass
+    '#7A87C6', // Flooded Veg
+    '#E49635', // Crops
+    '#DFC35A', // Shrub/Scrub
+    '#C4281B', // Built Area
+    '#A59B8F', // Bare Ground
+    '#B39FE1'  // Snow/Ice
+  ]
+};
+
+var dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1');
+
+
+// ============================================================
+// 3. FUNCTION: GET ANNUAL LULC (MODE OF YEAR)
+// ============================================================
+
+/**
+ * Returns the modal (most frequent) LULC class image for a given year.
+ * Using mode reduces seasonal noise from single-date imagery.
+ */
+function getLULC(year, region) {
+  var start = ee.Date.fromYMD(year, 1, 1);
+  var end   = ee.Date.fromYMD(year, 12, 31);
+
+  return dw
+    .filterDate(start, end)
+    .filterBounds(region)
+    .select('label')
+    .reduce(ee.Reducer.mode())
+    .rename('label')   // ensure consistent band name after reduce
+    .clip(region);
+}
+
+
+// ============================================================
+// 4. GENERATE LULC IMAGES FOR ALL YEARS
+// ============================================================
+
+var p2016 = getLULC(2016, punjab);
+var p2020 = getLULC(2020, punjab);
+var p2025 = getLULC(2025, punjab);
+
+var u2016 = getLULC(2016, uttarakhand);
+var u2020 = getLULC(2020, uttarakhand);
+var u2025 = getLULC(2025, uttarakhand);
+
+
+// ============================================================
+// 5. VISUALIZE ON MAP
+// ============================================================
+
+Map.centerObject(punjab, 7);
+
+// Punjab layers
+Map.addLayer(p2016, vis, 'Punjab LULC 2016', false);
+Map.addLayer(p2020, vis, 'Punjab LULC 2020', false);
+Map.addLayer(p2025, vis, 'Punjab LULC 2025', true);
+
+// Uttarakhand layers
+Map.addLayer(u2016, vis, 'Uttarakhand LULC 2016', false);
+Map.addLayer(u2020, vis, 'Uttarakhand LULC 2020', false);
+Map.addLayer(u2025, vis, 'Uttarakhand LULC 2025', true);
+
+// State boundaries for reference
+Map.addLayer(punjab.style({color: 'black', fillColor: '00000000', width: 1.5}),
+  {}, 'Punjab Boundaries');
+Map.addLayer(uttarakhand.style({color: 'black', fillColor: '00000000', width: 1.5}),
+  {}, 'Uttarakhand Boundaries');
+
+
+// ============================================================
+// 6. ROAD NETWORK — OSM uploaded assets
+//    North zone  → Punjab
+//    Central zone → Uttarakhand
+// ============================================================
+
+// Load your two uploaded road assets
+var northRoads    = ee.FeatureCollection('projects/spatial-491104/assets/project'); // Northern states
+var centralRoads  = ee.FeatureCollection('projects/spatial-491104/assets/central'); // Central states
+
+// Clip each dataset to its respective state boundary
+var punjabRoads      = northRoads.filterBounds(punjab);
+var uttarakhandRoads = centralRoads.filterBounds(uttarakhand);
+
+// Visualize all roads
+Map.addLayer(punjabRoads,      {color: 'FF0000'}, 'Punjab Roads (OSM)',      false);
+Map.addLayer(uttarakhandRoads, {color: 'FF6600'}, 'Uttarakhand Roads (OSM)', false);
+
+// Major roads only — OSM Geofabrik shapefiles use 'fclass' as road type field
+var majorRoadsPunjab = punjabRoads.filter(
+  ee.Filter.inList('fclass', ['motorway', 'trunk', 'primary', 'secondary'])
+);
+var majorRoadsUK = uttarakhandRoads.filter(
+  ee.Filter.inList('fclass', ['motorway', 'trunk', 'primary', 'secondary'])
+);
+
+Map.addLayer(majorRoadsPunjab, {color: 'CC0000'}, 'Punjab Major Roads',      false);
+Map.addLayer(majorRoadsUK,     {color: 'CC4400'}, 'Uttarakhand Major Roads', false);
+
+// --- Road Density Analysis ---
+// Rasterizes road length into a 500m grid → km of road per cell
+// Useful to correlate road expansion with built-up area growth
+
+// Step 1: Compute length (metres → km) for each road feature
+var punjabRoadsLen = punjabRoads.map(function(f) {
+  return f.set('road_length_km', f.length().divide(1000));
+});
+var ukRoadsLen = uttarakhandRoads.map(function(f) {
+  return f.set('road_length_km', f.length().divide(1000));
+});
+
+// Step 2: Rasterize — sum road length per 500m pixel
+var punjabRoadDensity = punjabRoadsLen
+  .reduceToImage(['road_length_km'], ee.Reducer.sum())
+  .rename('road_density')
+  .clip(punjab);
+
+var ukRoadDensity = ukRoadsLen
+  .reduceToImage(['road_length_km'], ee.Reducer.sum())
+  .rename('road_density')
+  .clip(uttarakhand);
+
+// Step 3: Visualize road density
+var densityVis = {min: 0, max: 2, palette: ['white', 'yellow', 'orange', 'red']};
+Map.addLayer(punjabRoadDensity, densityVis, 'Punjab Road Density',      false);
+Map.addLayer(ukRoadDensity,     densityVis, 'Uttarakhand Road Density', false);
+
+// Step 4: Export district-level total road length (km) per district
+var punjabRoadStats = punjabRoadDensity.reduceRegions({
+  collection: punjab,
+  reducer: ee.Reducer.sum().setOutputs(['road_km_total']),
+  scale: 500,
+  tileScale: 4
+});
+var ukRoadStats = ukRoadDensity.reduceRegions({
+  collection: uttarakhand,
+  reducer: ee.Reducer.sum().setOutputs(['road_km_total']),
+  scale: 500,
+  tileScale: 4
+});
+
+Export.table.toDrive({
+  collection: punjabRoadStats,
+  description: 'Punjab_RoadDensity_byDistrict',
+  folder: 'LULC_Analysis',
+  fileFormat: 'CSV'
+});
+Export.table.toDrive({
+  collection: ukRoadStats,
+  description: 'UK_RoadDensity_byDistrict',
+  folder: 'LULC_Analysis',
+  fileFormat: 'CSV'
+});
+
+
+// ============================================================
+// 7. DISTRICT-LEVEL AREA STATISTICS (EXPORT TO DRIVE)
+// ============================================================
+
+/**
+ * For each district, calculates area (km²) per LULC class.
+ * Output CSV has columns: ADM2_NAME, class (0-8), sum (area in km²)
+ */
+function districtStats(image, region, exportName) {
+  // Stack pixel area and LULC label bands
+  var areaImage = ee.Image.pixelArea()
+    .divide(1e6)          // convert m² → km²
+    .addBands(image);     // band 0: area, band 1: label
+
+  var stats = areaImage.reduceRegions({
+    collection: region,
+    reducer: ee.Reducer.sum().group({
+      groupField: 1,      // group by label band
+      groupName: 'class'
+    }),
+    scale: 10,            // Dynamic World native resolution
+    tileScale: 4
+  });
+
+  Export.table.toDrive({
+    collection: stats,
+    description: exportName,
+    folder: 'LULC_Analysis',
+    fileFormat: 'CSV'
+  });
+}
+
+// Punjab — all three years
+districtStats(p2016, punjab,      'Punjab_DistrictStats_2016');
+districtStats(p2020, punjab,      'Punjab_DistrictStats_2020');
+districtStats(p2025, punjab,      'Punjab_DistrictStats_2025');
+
+// Uttarakhand — all three years
+districtStats(u2016, uttarakhand, 'UK_DistrictStats_2016');
+districtStats(u2020, uttarakhand, 'UK_DistrictStats_2020');
+districtStats(u2025, uttarakhand, 'UK_DistrictStats_2025');
+
+
+// ============================================================
+// 8. TRANSITION MATRIX (CLASS-TO-CLASS CHANGES)
+// ============================================================
+
+/**
+ * Creates a transition matrix by encoding:
+ *   fromClass * 10 + toClass  →  unique transition code
+ * e.g. Forest(1) → Crops(4) = 14, Crops(4) → Built(6) = 46
+ *
+ * Exported CSV columns:
+ *   ADM2_NAME | transition (code) | sum (area km²)
+ *
+ * To decode: fromClass = floor(code/10), toClass = code % 10
+ */
+function transitionMatrix(img1, img2, region, exportName) {
+  // Encode transition as two-digit class code
+  var transitionImg = img1.multiply(10).add(img2).rename('transition');
+
+  var areaImage = ee.Image.pixelArea()
+    .divide(1e6)
+    .addBands(transitionImg);
+
+  var stats = areaImage.reduceRegions({
+    collection: region,
+    reducer: ee.Reducer.sum().group({
+      groupField: 1,
+      groupName: 'transition'
+    }),
+    scale: 10,
+    tileScale: 4
+  });
+
+  Export.table.toDrive({
+    collection: stats,
+    description: exportName,
+    folder: 'LULC_Analysis',
+    fileFormat: 'CSV'
+  });
+
+  // Also print to console for quick check
+  print('Transition preview — ' + exportName,
+    areaImage.reduceRegion({
+      reducer: ee.Reducer.sum().group({groupField: 1, groupName: 'transition'}),
+      geometry: region.geometry(),
+      scale: 500,           // coarser scale for quick print only
+      bestEffort: true,
+      maxPixels: 1e10
+    })
+  );
+}
+
+// Punjab transitions
+transitionMatrix(p2016, p2020, punjab,      'Punjab_Transition_2016_2020');
+transitionMatrix(p2020, p2025, punjab,      'Punjab_Transition_2020_2025');
+transitionMatrix(p2016, p2025, punjab,      'Punjab_Transition_2016_2025');
+
+// Uttarakhand transitions
+transitionMatrix(u2016, u2020, uttarakhand, 'UK_Transition_2016_2020');
+transitionMatrix(u2020, u2025, uttarakhand, 'UK_Transition_2020_2025');
+transitionMatrix(u2016, u2025, uttarakhand, 'UK_Transition_2016_2025');
+
+
+// ============================================================
+// 9. OVERALL CHANGE DETECTION (BINARY: CHANGED / NO CHANGE)
+// ============================================================
+
+/**
+ * Marks pixels where LULC class changed between two years.
+ * Exports district-level total changed area (km²).
+ */
+function changeDetection(img1, img2, region, exportName) {
+  var changed = img1.neq(img2);                          // 1 = changed, 0 = same
+  var changeArea = ee.Image.pixelArea()
+    .divide(1e6)
+    .updateMask(changed);                                // mask to changed pixels only
+
+  var stats = changeArea.reduceRegions({
+    collection: region,
+    reducer: ee.Reducer.sum().setOutputs(['changed_km2']),
+    scale: 10,
+    tileScale: 4
+  });
+
+  Export.table.toDrive({
+    collection: stats,
+    description: exportName,
+    folder: 'LULC_Analysis',
+    fileFormat: 'CSV'
+  });
+}
+
+// Punjab
+changeDetection(p2016, p2020, punjab,      'Punjab_Change_2016_2020');
+changeDetection(p2020, p2025, punjab,      'Punjab_Change_2020_2025');
+changeDetection(p2016, p2025, punjab,      'Punjab_Change_2016_2025');
+
+// Uttarakhand
+changeDetection(u2016, u2020, uttarakhand, 'UK_Change_2016_2020');
+changeDetection(u2020, u2025, uttarakhand, 'UK_Change_2020_2025');
+changeDetection(u2016, u2025, uttarakhand, 'UK_Change_2016_2025');
+
+
+// ============================================================
+// 10. IDENTIFY DISTRICT WITH HIGHEST CHANGE (2016–2025)
+//     + YEAR-WISE GRADUAL VS ABRUPT ANALYSIS
+// ============================================================
+
+/**
+ * Step A: Find the district with most changed pixels (2016–2025)
+ * Step B: For that district, compute per-class area for all 3 years
+ *         to assess if changes are gradual or abrupt
+ */
+
+// ---- PUNJAB: Highest change district ----
+var pChangeMask = p2016.neq(p2025);
+var pChangeArea = ee.Image.pixelArea().divide(1e6).updateMask(pChangeMask);
+
+var pDistrictChange = pChangeArea.reduceRegions({
+  collection: punjab,
+  reducer: ee.Reducer.sum().setOutputs(['changed_km2']),
+  scale: 10,
+  tileScale: 4
+});
+
+// Sort descending and print top district
+var pSorted = pDistrictChange.sort('changed_km2', false);
+print('Punjab — District with HIGHEST change (2016–2025):', pSorted.first());
+
+// Export the full ranked list
+Export.table.toDrive({
+  collection: pSorted,
+  description: 'Punjab_Districts_RankedByChange',
+  folder: 'LULC_Analysis',
+  fileFormat: 'CSV'
+});
+
+// ---- UTTARAKHAND: Highest change district ----
+var uChangeMask = u2016.neq(u2025);
+var uChangeArea = ee.Image.pixelArea().divide(1e6).updateMask(uChangeMask);
+
+var uDistrictChange = uChangeArea.reduceRegions({
+  collection: uttarakhand,
+  reducer: ee.Reducer.sum().setOutputs(['changed_km2']),
+  scale: 10,
+  tileScale: 4
+});
+
+var uSorted = uDistrictChange.sort('changed_km2', false);
+print('Uttarakhand — District with HIGHEST change (2016–2025):', uSorted.first());
+
+Export.table.toDrive({
+  collection: uSorted,
+  description: 'UK_Districts_RankedByChange',
+  folder: 'LULC_Analysis',
+  fileFormat: 'CSV'
+});
+
+// ---- YEAR-WISE ANALYSIS for Punjab's highest-change district ----
+// After running once and identifying the district name from Console,
+// replace 'YOUR_DISTRICT_NAME' below with the actual name (e.g., 'Ludhiana')
+
+var topPunjabDistrict = punjab
+  .filter(ee.Filter.eq('ADM2_NAME', 'Ludhiana'));  // <-- CHANGE THIS after first run
+
+// Per-class area for each year in that district
+function classAreaForDistrict(image, district, label) {
+  var areaImg = ee.Image.pixelArea().divide(1e6).addBands(image);
+  var result = areaImg.reduceRegion({
+    reducer: ee.Reducer.sum().group({groupField: 1, groupName: 'class'}),
+    geometry: district.geometry(),
+    scale: 10,
+    bestEffort: true,
+    maxPixels: 1e12
+  });
+  print('Class area — ' + label, result);
+}
+
+classAreaForDistrict(p2016, topPunjabDistrict, 'Top Punjab District 2016');
+classAreaForDistrict(p2020, topPunjabDistrict, 'Top Punjab District 2020');
+classAreaForDistrict(p2025, topPunjabDistrict, 'Top Punjab District 2025');
+
+// Same for Uttarakhand — replace 'Haridwar' with actual top district after first run
+var topUKDistrict = uttarakhand
+  .filter(ee.Filter.eq('ADM2_NAME', 'Haridwar'));  // <-- CHANGE THIS after first run
+
+classAreaForDistrict(u2016, topUKDistrict, 'Top UK District 2016');
+classAreaForDistrict(u2020, topUKDistrict, 'Top UK District 2020');
+classAreaForDistrict(u2025, topUKDistrict, 'Top UK District 2025');
+
+
+// ============================================================
+// 11. VISUALIZE CHANGE MAP (OPTIONAL — for report figures)
+// ============================================================
+
+// Binary change map: red = changed, transparent = no change
+var pChangeVis = p2016.neq(p2025).selfMask();
+var uChangeVis = u2016.neq(u2025).selfMask();
+
+Map.addLayer(pChangeVis, {palette: ['FF0000']}, 'Punjab Change 2016–2025 (red)', false);
+Map.addLayer(uChangeVis, {palette: ['FF6600']}, 'Uttarakhand Change 2016–2025 (orange)', false);
+
+// ============================================================
+// 12. EXPORT LULC RASTERS AS GEOTIFF (optional, for GIS use)
+// ============================================================
+
+function exportRaster(image, region, name) {
+  Export.image.toDrive({
+    image: image,
+    description: name,
+    folder: 'LULC_Analysis',
+    region: region.geometry().bounds(),
+    scale: 10,
+    maxPixels: 1e13,
+    fileFormat: 'GeoTIFF'
+  });
+}
+
+exportRaster(p2016, punjab,      'Punjab_LULC_2016_Raster');
+exportRaster(p2025, punjab,      'Punjab_LULC_2025_Raster');
+exportRaster(u2016, uttarakhand, 'UK_LULC_2016_Raster');
+exportRaster(u2025, uttarakhand, 'UK_LULC_2025_Raster');
+
+
+// ============================================================
+// END OF SCRIPT
+// ============================================================
+// OUTPUT FILES (all in Google Drive → LULC_Analysis folder):
+//
+// CSVs — District stats (area per class per year):
+//   Punjab_DistrictStats_2016 / 2020 / 2025
+//   UK_DistrictStats_2016 / 2020 / 2025
+//
+// CSVs — Transition matrices:
+//   Punjab_Transition_2016_2020 / 2020_2025 / 2016_2025
+//   UK_Transition_2016_2020 / 2020_2025 / 2016_2025
+//
+// CSVs — Change detection (binary):
+//   Punjab_Change_2016_2020 / 2020_2025 / 2016_2025
+//   UK_Change_2016_2020 / 2020_2025 / 2016_2025
+//
+// CSVs — Districts ranked by total change:
+//   Punjab_Districts_RankedByChange
+//   UK_Districts_RankedByChange
+//
+// GeoTIFFs (optional):
+//   Punjab_LULC_2016_Raster / 2025_Raster
+//   UK_LULC_2016_Raster / 2025_Raster
+// ============================================================
