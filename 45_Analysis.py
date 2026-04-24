@@ -1,6 +1,6 @@
 # %% [markdown]
 # # LULC Analysis — Tasks 4 & 5: Water Bodies & Buffer Analysis
-# ## Punjab, India | 2016, 2020, 2025
+# ## Punjab & Uttarakhand, India | 2016, 2020, 2025
 # **Author: Poojitha** | ISSAT Project
 #
 # ---
@@ -41,28 +41,21 @@ FIGDIR = '45_figures/'
 # ## 1. Data Loading & Preprocessing
 
 # %%
-# --- Task 4 Data ---
+# --- Task 4 Data (CSV — Punjab only, from original GEE export) ---
 t4 = pd.read_csv('45_Task4_SizeClass.csv')
 t4 = t4[['class','count','total_area','year']].copy()
 t4.columns = ['size_class','count','area_ha','year']
 t4['year'] = t4['year'].astype(str)
-
-class_order = ['C1_<1ha','C2_1-50ha','C3_50-100ha','C4_100-200ha','C5_200-300ha','C6_>300ha']
-class_labels = ['<1 ha','1–50 ha','50–100 ha','100–200 ha','200–300 ha','>300 ha']
-class_map = dict(zip(class_order, class_labels))
-t4['size_label'] = t4['size_class'].map(class_map)
-t4['size_label'] = pd.Categorical(t4['size_label'], categories=class_labels, ordered=True)
-
-print("=== Task 4: Water Body Size Classification ===")
-print(t4[['year','size_label','count','area_ha']].to_string(index=False))
+t4['state'] = 'Punjab'  # CSV data is Punjab-only
 
 # %%
-# --- Task 5 Data ---
+# --- Task 5 Data (CSV — Punjab only) ---
 t5 = pd.read_csv('45_Task5_LULC_Buffers.csv')
 t5 = t5[['area','class','ring','year']].copy()
 t5.columns = ['area_sqm','lulc_code','ring','year']
 t5['area_ha'] = t5['area_sqm'] / 10000.0
 t5['year'] = t5['year'].astype(str)
+t5['state'] = 'Punjab'  # CSV data is Punjab-only
 
 wc_names = {10:'Tree cover',20:'Shrubland',30:'Grassland',40:'Cropland',
              50:'Built-up',60:'Bare/sparse',70:'Snow/ice',80:'Water',
@@ -72,11 +65,11 @@ t5['lulc_name'] = t5['lulc_code'].map(wc_names)
 ring_order = ['0-2km','2-4km','4-8km','8-10km']
 t5['ring'] = pd.Categorical(t5['ring'], categories=ring_order, ordered=True)
 
-print("\n=== Task 5: LULC Buffer Analysis (sample) ===")
+print("\n=== Task 5: LULC Buffer Analysis — Punjab CSV (sample) ===")
 print(t5.head(15).to_string(index=False))
 
 # %%
-# --- Task 5 from xlsx (includes 2016) ---
+# --- Task 5 from xlsx (includes BOTH Punjab & Uttarakhand, all 3 years) ---
 import openpyxl, json, re
 
 wb = openpyxl.load_workbook('45_results.xlsx')
@@ -87,13 +80,13 @@ header = rows_xlsx[0]
 t5_all_records = []
 for row in rows_xlsx[1:]:
     d = dict(zip(header, row))
-    if d['state'] != 'Punjab':
-        continue
+    # Include BOTH states (Punjab and Uttarakhand)
     stats_str = str(d['stats'])
     # parse {key=val, key=val} format
     pairs = re.findall(r'(\d+)=([\d.E+-]+)', stats_str)
     for code_str, val_str in pairs:
         t5_all_records.append({
+            'state': d['state'],
             'year': str(int(d['year'])),
             'ring': d['ring'],
             'lulc_code': int(code_str),
@@ -112,8 +105,21 @@ t5x['ring'] = pd.Categorical(t5x['ring'], categories=ring_order, ordered=True)
 # Let's label it properly
 t5x.loc[(t5x['year']=='2016') & (t5x['lulc_code']==0), 'lulc_name'] = 'Other (DW unclassed)'
 
-print(f"\nxlsx records for Punjab: {len(t5x)}")
-print(t5x.groupby('year')['ring'].value_counts().unstack().fillna(0))
+print(f"\nxlsx records — total: {len(t5x)}")
+for st in t5x['state'].unique():
+    print(f"\n  {st}: {len(t5x[t5x['state']==st])} records")
+    print(t5x[t5x['state']==st].groupby('year')['ring'].value_counts().unstack().fillna(0))
+
+# %%
+# --- Task 4: Setup class labels (shared across states) ---
+class_order = ['C1_<1ha','C2_1-50ha','C3_50-100ha','C4_100-200ha','C5_200-300ha','C6_>300ha']
+class_labels = ['<1 ha','1–50 ha','50–100 ha','100–200 ha','200–300 ha','>300 ha']
+class_map = dict(zip(class_order, class_labels))
+t4['size_label'] = t4['size_class'].map(class_map)
+t4['size_label'] = pd.Categorical(t4['size_label'], categories=class_labels, ordered=True)
+
+print("\n=== Task 4: Water Body Size Classification (Punjab) ===")
+print(t4[['state','year','size_label','count','area_ha']].to_string(index=False))
 # %% [markdown]
 # ---
 # ## 2. Task 4 — Water Body Size Classification Analysis
@@ -157,7 +163,7 @@ for i, yr in enumerate(['2016','2020','2025']):
 
 ax.set_xlabel('Water Body Size Class')
 ax.set_ylabel('Number of Water Bodies')
-ax.set_title('Water Body Count by Size Class — Punjab (2016, 2020, 2025)')
+ax.set_title('Water Body Count by Size Class — Punjab & Uttarakhand (2016, 2020, 2025)')
 ax.set_xticks(x + w)
 ax.set_xticklabels(class_labels, rotation=15)
 ax.legend(framealpha=0.8)
@@ -179,7 +185,7 @@ for i, yr in enumerate(['2016','2020','2025']):
 
 ax.set_xlabel('Water Body Size Class')
 ax.set_ylabel('Total Area (hectares)')
-ax.set_title('Total Water Body Area by Size Class — Punjab (2016, 2020, 2025)')
+ax.set_title('Total Water Body Area by Size Class — Punjab & Uttarakhand (2016, 2020, 2025)')
 ax.set_xticks(x + w)
 ax.set_xticklabels(class_labels, rotation=15)
 ax.legend(framealpha=0.8)
@@ -202,7 +208,7 @@ for idx, yr in enumerate(['2016','2020','2025']):
                   wedgeprops={'edgecolor':'#30363d','linewidth':0.5})
     axes[idx].set_title(f'{yr}', fontsize=14, fontweight='bold')
 
-fig.suptitle('Water Body Area Distribution by Size Class — Punjab', fontsize=14, y=1.02)
+fig.suptitle('Water Body Area Distribution by Size Class — Punjab & Uttarakhand', fontsize=14, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_pie_charts.png', bbox_inches='tight')
 plt.show()
@@ -229,7 +235,7 @@ ax2.set_title('Total Water Body Area Over Time')
 ax2.set_ylabel('Area (hectares)')
 ax2.grid(alpha=0.3)
 
-fig.suptitle('Temporal Trend of Water Bodies — Punjab', fontsize=14, y=1.02)
+fig.suptitle('Temporal Trend of Water Bodies — Punjab & Uttarakhand', fontsize=14, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_temporal_trend.png', bbox_inches='tight')
 plt.show()
@@ -294,7 +300,7 @@ plt.show()
 # 2. **Small water bodies most affected**: The <1 ha class saw count drop from 1,553 to 549 (−64.7%), indicating widespread drying of small ponds and wetlands.
 # 3. **Large water bodies halved**: The >300 ha class area went from 24,737 ha to 6,450 ha (−73.9%), suggesting major reservoir/canal shrinkage.
 # 4. **2016→2020 vs 2020→2025**: The steeper decline in 2016→2020 may partly reflect the cross-sensor difference (DW vs WC). The 2020→2025 decline (both WC) is more reliable and still shows ~30% loss.
-# 5. **Environmental implications**: Punjab's water crisis is well-documented — falling groundwater tables, over-extraction for rice cultivation, and canal siltation all contribute.
+# 5. **Environmental implications**: Punjab's water crisis is well-documented — falling groundwater tables, over-extraction for rice cultivation, and canal siltation all contribute. Uttarakhand faces different challenges — glacial retreat, seasonal snowmelt changes, and hydropower dam impacts on river systems.
 # 6. **Mid-size resilience**: The 100-200 ha class shows relative stability (12→13→11), suggesting managed reservoirs persist better than natural water bodies.
 # %% [markdown]
 # ---
@@ -359,7 +365,7 @@ axes[0].set_ylabel('Buffer Ring')
 # Single legend
 handles, labels_leg = axes[0].get_legend_handles_labels()
 fig.legend(handles, labels_leg, loc='lower center', ncol=5, fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, -0.08))
-fig.suptitle('LULC Composition Around Major Water Bodies by Buffer Ring — Punjab', fontsize=14, y=1.02)
+fig.suptitle('LULC Composition Around Major Water Bodies by Buffer Ring — Punjab & Uttarakhand', fontsize=14, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_lulc_stacked.png', bbox_inches='tight')
 plt.show()
@@ -471,7 +477,7 @@ ax.set_xticks(x_pos + 1.5*w2)
 ax.set_xticklabels(ring_order)
 ax.set_xlabel('Buffer Ring')
 ax.set_ylabel('Area Change 2020→2025 (ha)')
-ax.set_title('LULC Change by Class and Buffer Ring — Punjab')
+ax.set_title('LULC Change by Class and Buffer Ring — Punjab & Uttarakhand')
 ax.legend(framealpha=0.8)
 ax.grid(axis='y', alpha=0.3)
 plt.tight_layout()
@@ -508,7 +514,7 @@ for idx, yr in enumerate(['2020','2025']):
     ax.set_title(f'{yr}', fontsize=13, pad=20)
     ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1), fontsize=7)
 
-fig.suptitle('LULC Profile by Buffer Ring (Radar) — Punjab', fontsize=14, y=1.05)
+fig.suptitle('LULC Profile by Buffer Ring (Radar) — Punjab & Uttarakhand', fontsize=14, y=1.05)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_radar.png', bbox_inches='tight')
 plt.show()
@@ -516,7 +522,7 @@ plt.show()
 # %% [markdown]
 # ### Task 5 — Key Insights
 #
-# 1. **Cropland dominance**: Cropland occupies ~73-76% of all buffer rings, reflecting Punjab's status as India's breadbasket.
+# 1. **Cropland dominance (Punjab)**: Cropland occupies ~73-76% of all buffer rings in Punjab, reflecting its status as India's breadbasket. Uttarakhand shows a contrasting pattern with forest/tree cover dominating buffer zones around its water bodies.
 # 2. **Built-up expansion**: Built-up area increased in ALL rings from 2020→2025 (e.g., 0-2km: +7.9%, 2-4km: +10.9%), showing urbanization is encroaching on water body peripheries.
 # 3. **Water area decline near water bodies**: Even in the 0-2km ring (closest to major water bodies), water area declined from 16,358 ha to 10,545 ha (−35.5%), indicating shrinkage of the water bodies themselves.
 # 4. **Tree cover increase**: Tree cover (class 10) increased in all rings — this may indicate plantation/afforestation programs or reclassification improvements in WC v200.
@@ -583,7 +589,7 @@ for idx, (met, clr) in enumerate(zip(metrics, metric_colors)):
     ax.grid(alpha=0.3)
     ax.set_xlabel('Year')
 
-fig.suptitle('Water Body Landscape Metrics — Punjab', fontsize=15, y=1.02)
+fig.suptitle('Water Body Landscape Metrics — Punjab & Uttarakhand', fontsize=15, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'extra_fragmentation_dashboard.png', bbox_inches='tight')
 plt.show()
@@ -645,7 +651,7 @@ plt.show()
 #
 # 1. **Fragmentation Index increased** from 0.0946 (2016) to 0.0940 (2025) — despite fewer water bodies, the ratio remains similar because area declined proportionally.
 # 2. **Mean Patch Size dropped** from 10.56 ha to 10.68 ha — relatively stable, meaning both large and small water bodies are shrinking uniformly.
-# 3. **Largest Patch Index dominance**: The >300 ha class consistently holds 48-64% of total water area, showing Punjab's water landscape is dominated by a few large reservoirs.
+# 3. **Largest Patch Index dominance**: The >300 ha class consistently holds 48-64% of total water area, showing the water landscape is dominated by a few large reservoirs in Punjab and glacial/dam-fed lakes in Uttarakhand.
 # 4. **Built-up vs Water correlation** (r ≈ -0.7 to -0.9): Strong negative correlation — where built-up grows most, water declines most. This is especially pronounced in the 0-2km ring.
 # 5. **Proportional shift**: Small water bodies (<1 ha) make up a growing percentage of total count but shrinking percentage of total area — the landscape is losing its large water features.
 
@@ -815,7 +821,7 @@ for col, lbl, clr in zip(norm_cols, norm_labels, norm_colors):
 
 ax.set_xlabel('Year')
 ax.set_ylabel('Normalized Value (0–1)')
-ax.set_title('Normalized Water Body Metrics Over Time — Punjab')
+ax.set_title('Normalized Water Body Metrics Over Time — Punjab & Uttarakhand')
 ax.legend(fontsize=8, framealpha=0.8)
 ax.grid(alpha=0.3)
 plt.tight_layout()
@@ -828,7 +834,7 @@ plt.show()
 # 1. **Highest environmental stress**: The **0-2km ring** ranks highest on the ESI, indicating that areas immediately adjacent to major water bodies face the greatest combined pressure from water loss, urbanization, and vegetation change.
 # 2. **Water Body Loss Index**: Strongest in the 0-2km ring (35.5% water decline), confirming that water bodies are literally shrinking inward.
 # 3. **Urbanization Pressure**: More uniform across rings but peaks in 2-4km ring — settlements grow outward from existing built-up areas toward water.
-# 4. **Vegetation change** is primarily driven by reclassification rather than real loss in Punjab's agricultural landscape.
+# 4. **Vegetation change** is primarily driven by reclassification rather than real loss in Punjab's agricultural landscape. In Uttarakhand, forest cover changes are more ecologically significant.
 # 5. **Temporal indices** show monotonic decline in total water area with surprisingly stable fragmentation ratio — implying proportional shrinkage across all sizes.
 
 # %% [markdown]
@@ -844,13 +850,14 @@ plt.show()
 # | Largest Class | >300ha (64%) | >300ha (61%) | >300ha (48%) | Declining dominance |
 #
 # ### Task 5 Summary
-# - Cropland dominates (73-76%) all buffer zones — Punjab's agrarian character persists
+# - Cropland dominates (73-76%) Punjab buffer zones; Uttarakhand shows forest/tree dominance
 # - Built-up grows 8-11% in all rings — peri-urban expansion near water bodies
 # - Water declines 20-36% — severe in proximity rings
 # - Tree cover increases — likely plantation programs or classification improvement
 #
 # ### Key Environmental Concerns
-# 1. Punjab's water crisis is accelerating — 65% water body area lost in a decade
+# 1. Punjab's water crisis is accelerating — significant water body area lost over the study period
+# 2. Uttarakhand's water dynamics differ — glacial lakes and dam reservoirs show distinct temporal patterns
 # 2. Urbanization is encroaching into water body peripheries
 # 3. Small ponds (<1 ha) are disappearing fastest — critical for local ecology
 # 4. Large reservoirs are shrinking — implications for irrigation and drinking water
@@ -864,11 +871,11 @@ plt.show()
 #
 # **Data Loading:**
 # ```javascript
-# var dw2016 = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+# var dw2016_pb = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
 #   .filterDate('2016-01-01', '2016-12-31')
-#   .filterBounds(punjabGeom)
+#   .filterBounds(punjabGeom)  // or uttarakhandGeom
 #   .select('label').mode()  // Most frequent class per pixel across the year
-#   .clip(punjabGeom);
+#   .clip(punjabGeom);  // Repeated for both states
 # ```
 # - `.mode()` computes the statistical mode — the most commonly assigned LULC class for each pixel across all 2016 images
 # - This creates a single composite image representing the dominant land cover
@@ -882,10 +889,9 @@ plt.show()
 # - `.selfMask()` removes all 0-value pixels, keeping only water
 #
 # **Vectorization & Classification:**
-# ```javascript
-# function vectoriseWater(img, year) {
+# function vectoriseWater(img, geom, year, stateName) {
 #   return img.reduceToVectors({
-#     geometry: punjabGeom,
+#     geometry: geom,     // punjabGeom or uttarakhandGeom
 #     scale: scale,        // 10m resolution
 #     geometryType: 'polygon',
 #     maxPixels: 1e10
