@@ -1,26 +1,42 @@
-# Visual Insights Cheat Sheet — Task 4 & 5 Figures
+# Visual Insights Cheat Sheet (State-Specific)
 
 ### 🌍 Comparative Dashboards (PB vs UK)
-*   **comp_state_profile.png** : Contrasts Punjab's cropland-dominated landscape (73%) with Uttarakhand's forest-heavy profile; highlights the fundamentally different environmental "DNA" of the two states.
-*   **comp_water_trends.png** : Shows surface water area declining in both states, but more severely in Punjab's plains (−65%) compared to Uttarakhand's more stable dam-controlled reservoirs.
-*   **comp_urban_heatmap.png** : Directly links urban density to water proximity; shows built-up area is most intense in the 2-4km rings as settlements expand toward water resources.
+*   **comp_state_profile.png**
+    - **Punjab**: Dominated by Cropland (73%); shows a highly engineered agricultural landscape.
+    - **Uttarakhand**: Dominated by Tree Cover and Shrubland; highlights a natural, mountainous ecosystem.
+*   **comp_water_trends.png**
+    - **Punjab**: Sharp, steep decline (−65%) in surface water; reflects heavy irrigation pressure and groundwater depletion.
+    - **Uttarakhand**: More stable water area; changes are driven by seasonal reservoir management (dams) rather than total loss.
+*   **comp_urban_heatmap.png**
+    - **Punjab**: Urban density peaks in the 2-4km ring, showing town centers growing *away* from flood-prone areas.
+    - **Uttarakhand**: Urban pressure is most intense in the 0-2km valley floors where buildable land is scarce near rivers.
 
-### 💧 Task 4: Water Body Size Classification
-*   **task4_count_bars.png** : Highlights a massive drop in the number of small water bodies (<1ha); suggests that seasonal ponds and village tanks are drying up fastest.
-*   **task4_area_bars.png** : Demonstrates that while small ponds are numerous, the >300ha class holds most of the water area; their shrinkage represents the bulk of total water loss.
-*   **task4_pie_charts.png** : Visualizes the proportional shift in water storage; the "Big 5" reservoirs in Punjab are losing their dominance as they shrink inward.
-*   **task4_temporal_trend.png** : A high-level view of the decade-long decline; confirms that the water crisis is a persistent, non-seasonal trend.
-*   **task4_pct_change_heatmap.png** : Pinpoints which size classes are most vulnerable; shows that mid-sized water bodies (50-100ha) are disappearing at the highest rates.
+### 🏗️ Task 5: Split Buffer Zone Analysis
+*   **task5_lulc_stacked.png**
+    - **Punjab**: Shows a "Green-to-Yellow" shift as Cropland continues to dominate every single buffer ring up to 10km.
+    - **Uttarakhand**: Shows a complex "Green-to-Brown" mix of forests and bare soil, reflecting the steep elevation changes across rings.
+*   **task5_change_by_class.png**
+    - **Punjab**: Water loss is being directly replaced by **Cropland expansion** and new **Built-up** clusters.
+    - **Uttarakhand**: Water area fluctuations are balanced by **Tree cover gain** (afforestation) and **Grassland** increases in the valleys.
+*   **task5_radar.png**
+    - **Punjab**: Profile is heavily "lopsided" toward the Cropland axis, showing a lack of land-cover diversity.
+    - **Uttarakhand**: Profile is much more balanced and "round," showing a healthy mix of forest, shrub, and water.
+*   **task5_change_heatmap.png**
+    - **Punjab**: The "Red Zone" (loss) is concentrated in Water and Bare soil classes across the 0-2km ring.
+    - **Uttarakhand**: Shows "Green Growth" in Tree cover across all rings, indicating successful mountain conservation efforts.
 
-### 🏗️ Task 5: Buffer Zone Analysis
-*   **task5_lulc_stacked.png** : Reveals that cropland is the "background" of Punjab's water landscape, while built-up area forms a ring of pressure around major water bodies.
-*   **task5_change_by_class.png** : Captures the "substitution" effect; as water area declines, it is being replaced primarily by tree cover (plantation) and built-up expansion.
-*   **task5_radar.png** : Shows the "reach" of different land covers; demonstrates how urban influence extends up to 4km from the water's edge.
-*   **task5_change_heatmap.png** : A spatial summary of change; highlights that the 0-2km ring is the most dynamic and unstable zone in the entire landscape.
+### 📈 Advanced Metrics & Correlation
+*   **indices_radar.png**
+    - **Punjab**: High stress in WBLI (Water Loss) and UPI (Urbanization); the 0-2km ring is in a "critical" state.
+    - **Uttarakhand**: Lower overall stress; the primary challenge is the VCI (Vegetation Change) in narrow river corridors.
+*   **extra_builtup_vs_water.png**
+    - **Punjab**: A near-perfect negative correlation; for every hectare of new concrete, a hectare of water is lost.
+    - **Uttarakhand**: Correlation is weaker (r = -0.4); water changes are more tied to climate/dams than direct urban encroachment.
 
-### 📈 Advanced Metrics & Indices
-*   **indices_radar.png** : Combines all stresses into one view; shows that the 0-2km ring faces the highest combined pressure from urbanization and water loss.
-*   **indices_esi_ranking.png** : Ranks the buffer rings by "danger" level; confirms that the closer you are to a major water body, the higher the environmental stress.
-*   **indices_temporal.png** : Tracks normalized health over time; shows total water area and fragmentation moving in a downward spiral.
-*   **extra_fragmentation_dashboard.png** : Measures how "broken" the water landscape is; shows that despite area loss, the spatial distribution remains highly fragmented.
-*   **extra_builtup_vs_water.png** : The "smoking gun" chart; proves a strong negative correlation (r = -0.72) between urban growth and water body shrinkage.
+### 💧 Task 4: Size Classification (PB-focused)
+*   **task4_count_bars.png**
+    - **Punjab**: Shows a "Massacre of Small Ponds"; over 1,000 small water bodies vanished between 2016 and 2025.
+    - **Uttarakhand**: (Data pending GEE export) Expected to show high stability in mid-to-large reservoir counts.
+*   **task4_area_bars.png**
+    - **Punjab**: The largest reservoirs (>300ha) have shrunk by nearly half, threatening regional irrigation security.
+    - **Uttarakhand**: Large dam reservoirs like Tehri remain the "backbone" of the state's water area.
