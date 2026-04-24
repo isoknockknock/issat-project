@@ -523,34 +523,35 @@ plt.savefig(FIGDIR + 'extra_size_shift.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 4.4 Correlation — Built-up Growth vs Water Loss by Ring
-builtup_change = []
-water_change = []
-for ring in ring_order:
-    b20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Built-up')]['area_ha'].sum()
-    b25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Built-up')]['area_ha'].sum()
-    w20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Water')]['area_ha'].sum()
-    w25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Water')]['area_ha'].sum()
-    builtup_change.append(b25-b20)
-    water_change.append(w25-w20)
+# 4.4 Correlation — Built-up Growth vs Water Loss — SPLIT BY STATE
+fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.scatter(builtup_change, water_change, c=['#58a6ff','#3fb950','#f778ba','#f0883e'], s=150, zorder=5, edgecolor='white', linewidth=1.5)
-for i, ring in enumerate(ring_order):
-    ax.annotate(ring, (builtup_change[i], water_change[i]), textcoords="offset points",
-                xytext=(10,5), fontsize=10, color='#c9d1d9')
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    st_sub = t5_nz[t5_nz['state']==state]
+    builtup_ch = []
+    water_ch = []
+    for ring in ring_order:
+        b20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Built-up')]['area_ha'].sum()
+        b25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Built-up')]['area_ha'].sum()
+        w20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Water')]['area_ha'].sum()
+        w25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Water')]['area_ha'].sum()
+        builtup_ch.append(b25-b20)
+        water_ch.append(w25-w20)
+    
+    ax.scatter(builtup_ch, water_ch, c=['#58a6ff','#3fb950','#f778ba','#f0883e'], s=150, zorder=5, edgecolor='white')
+    for i, ring in enumerate(ring_order):
+        ax.annotate(ring, (builtup_ch[i], water_ch[i]), textcoords="offset points", xytext=(10,5), fontsize=10)
+    
+    ax.axhline(0, color='#8b949e', linewidth=0.5, linestyle='--')
+    ax.axvline(0, color='#8b949e', linewidth=0.5, linestyle='--')
+    ax.set_title(f'{state}: Urban Growth vs Water Loss')
+    ax.set_xlabel('Built-up Change (ha)')
+    ax.set_ylabel('Water Change (ha)')
+    
+    corr = np.corrcoef(builtup_ch, water_ch)[0,1]
+    ax.text(0.05, 0.95, f'r = {corr:.3f}', transform=ax.transAxes, fontsize=12, fontweight='bold', color='#f778ba')
 
-ax.axhline(y=0, color='#8b949e', linewidth=0.5, linestyle='--')
-ax.axvline(x=0, color='#8b949e', linewidth=0.5, linestyle='--')
-ax.set_xlabel('Built-up Change (ha)')
-ax.set_ylabel('Water Change (ha)')
-ax.set_title('Built-up Growth vs Water Loss by Buffer Ring')
-ax.grid(alpha=0.3)
-
-# Correlation
-corr = np.corrcoef(builtup_change, water_change)[0,1]
-ax.text(0.05, 0.95, f'r = {corr:.3f}', transform=ax.transAxes, fontsize=12,
-        color='#f778ba', fontweight='bold', verticalalignment='top')
 plt.tight_layout()
 plt.savefig(FIGDIR + 'extra_builtup_vs_water.png', bbox_inches='tight')
 plt.show()
@@ -578,173 +579,130 @@ plt.show()
 # 5. **Environmental Stress Index (ESI)**: Weighted composite = 0.35×WBLI + 0.30×UPI + 0.20×VCI + 0.15×CSI
 
 # %%
-# 5.1 Compute Indices per Ring
+# 5.1 Compute Indices per Ring & STATE
 index_records = []
-for ring in ring_order:
-    # Water loss
-    w20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Water')]['area_ha'].sum()
-    w25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Water')]['area_ha'].sum()
-    wbli_raw = (w20 - w25) / w20 * 100 if w20 > 0 else 0  # positive = loss
-    
-    # Built-up growth
-    b20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Built-up')]['area_ha'].sum()
-    b25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Built-up')]['area_ha'].sum()
-    upi_raw = (b25 - b20) / b20 * 100 if b20 > 0 else 0  # positive = growth
-    
-    # Tree cover change
-    tc20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Tree cover')]['area_ha'].sum()
-    tc25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Tree cover')]['area_ha'].sum()
-    vci_raw = (tc20 - tc25) / tc20 * 100 if tc20 > 0 else 0  # positive = loss
-    
-    # Cropland change
-    c20 = t5_nz[(t5_nz['year']=='2020')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Cropland')]['area_ha'].sum()
-    c25 = t5_nz[(t5_nz['year']=='2025')&(t5_nz['ring']==ring)&(t5_nz['lulc_name']=='Cropland')]['area_ha'].sum()
-    csi_raw = abs(c25 - c20) / c20 * 100 if c20 > 0 else 0  # magnitude of change
-    
-    index_records.append({
-        'ring': ring, 'WBLI_raw': wbli_raw, 'UPI_raw': upi_raw,
-        'VCI_raw': vci_raw, 'CSI_raw': csi_raw
-    })
+for state in states_list:
+    st_sub = t5_nz[t5_nz['state']==state]
+    for ring in ring_order:
+        w20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Water')]['area_ha'].sum()
+        w25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Water')]['area_ha'].sum()
+        wbli = (w20 - w25) / w20 if w20 > 0 else 0
+        
+        b20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Built-up')]['area_ha'].sum()
+        b25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Built-up')]['area_ha'].sum()
+        upi = (b25 - b20) / b20 if b20 > 0 else 0
+        
+        tc20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Tree cover')]['area_ha'].sum()
+        tc25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Tree cover')]['area_ha'].sum()
+        vci = (tc20 - tc25) / tc20 if tc20 > 0 else 0
+        
+        c20 = st_sub[(st_sub['year']=='2020')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Cropland')]['area_ha'].sum()
+        c25 = st_sub[(st_sub['year']=='2025')&(st_sub['ring']==ring)&(st_sub['lulc_name']=='Cropland')]['area_ha'].sum()
+        csi = abs(c25 - c20) / c20 if c20 > 0 else 0
+        
+        index_records.append({'state': state, 'ring': ring, 'WBLI': wbli, 'UPI': upi, 'VCI': vci, 'CSI': csi})
 
 idx_df = pd.DataFrame(index_records)
-
-# Min-Max Normalize
-for col in ['WBLI_raw','UPI_raw','VCI_raw','CSI_raw']:
-    mn, mx = idx_df[col].min(), idx_df[col].max()
-    norm_col = col.replace('_raw','')
-    idx_df[norm_col] = (idx_df[col] - mn) / (mx - mn) if mx > mn else 0.5
-
-# Composite ESI
-idx_df['ESI'] = 0.35*idx_df['WBLI'] + 0.30*idx_df['UPI'] + 0.20*idx_df['VCI'] + 0.15*idx_df['CSI']
-
-# Rank
-idx_df['Rank'] = idx_df['ESI'].rank(ascending=False).astype(int)
-idx_df = idx_df.sort_values('Rank')
-
-print("=== Environmental Stress Index by Buffer Ring ===")
-print(idx_df[['ring','WBLI','UPI','VCI','CSI','ESI','Rank']].round(3).to_string(index=False))
+# Normalize 0-1
+for col in ['WBLI','UPI','VCI','CSI']:
+    diff = idx_df[col].max() - idx_df[col].min()
+    if diff == 0: diff = 1
+    idx_df[col] = (idx_df[col] - idx_df[col].min()) / diff
+idx_df['ESI'] = idx_df[['WBLI','UPI','VCI','CSI']].mean(axis=1)
 
 # %%
-# 5.2 Index Dashboard — Spider/Radar
-fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-index_names = ['WBLI','UPI','VCI','CSI','ESI']
-ring_colors = ['#58a6ff','#3fb950','#f778ba','#f0883e']
+# 5.2 Radar Charts — SPLIT BY STATE
+fig, axes = plt.subplots(1, 2, figsize=(18, 9), subplot_kw=dict(polar=True))
+idx_names = ['WBLI','UPI','VCI','CSI','ESI']
+ring_clrs = ['#58a6ff','#3fb950','#f778ba','#f0883e']
 
-for r_idx, ring in enumerate(ring_order):
-    row = idx_df[idx_df['ring']==ring].iloc[0]
-    vals = [row[c] for c in index_names]
-    vals.append(vals[0])
-    angles = [n/float(len(index_names))*2*pi for n in range(len(index_names))]
-    angles.append(angles[0])
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    sub = idx_df[idx_df['state']==state]
+    for r_idx, ring in enumerate(ring_order):
+        row = sub[sub['ring']==ring].iloc[0]
+        vals = [row[c] for c in idx_names]
+        vals.append(vals[0])
+        angles = [n/float(len(idx_names))*2*pi for n in range(len(idx_names))]
+        angles.append(angles[0])
+        ax.plot(angles, vals, 'o-', linewidth=2, label=ring, color=ring_clrs[r_idx])
+        ax.fill(angles, vals, alpha=0.05, color=ring_clrs[r_idx])
     
-    ax.plot(angles, vals, 'o-', linewidth=2, label=f'{ring} (Rank {int(row["Rank"])})',
-            color=ring_colors[r_idx], markersize=6)
-    ax.fill(angles, vals, alpha=0.08, color=ring_colors[r_idx])
+    ax.set_xticks([n/float(len(idx_names))*2*pi for n in range(len(idx_names))])
+    ax.set_xticklabels(idx_names)
+    ax.set_title(f'{state}: Stress Radar', pad=20)
+    if s_idx == 1: ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 
-ax.set_xticks([n/float(len(index_names))*2*pi for n in range(len(index_names))])
-ax.set_xticklabels(index_names, fontsize=10)
-ax.set_title('Environmental Stress Index — Radar by Buffer Ring', pad=25, fontsize=13)
-ax.legend(loc='upper right', bbox_to_anchor=(1.35, 1.1), fontsize=9)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'indices_radar.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 5.3 Bar Chart — ESI Ranking
-fig, ax = plt.subplots(figsize=(10, 5))
-sorted_idx = idx_df.sort_values('ESI', ascending=True)
-colors_rank = ['#3fb950','#58a6ff','#f0883e','#ff7b72']
-
-bars = ax.barh(sorted_idx['ring'], sorted_idx['ESI'], color=colors_rank, edgecolor='#30363d', height=0.5)
-for bar, val, rank in zip(bars, sorted_idx['ESI'], sorted_idx['Rank']):
-    ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2,
-            f'{val:.3f} (Rank {int(rank)})', ha='left', va='center', fontsize=10, color='#c9d1d9')
-
-ax.set_xlabel('Environmental Stress Index (ESI)')
-ax.set_title('Buffer Ring Ranking by Environmental Stress Index')
-ax.grid(axis='x', alpha=0.3)
-ax.set_xlim(0, max(sorted_idx['ESI'])*1.3)
-plt.tight_layout()
-plt.savefig(FIGDIR + 'indices_esi_ranking.png', bbox_inches='tight')
-plt.show()
-
-# %%
-# 5.4 Grouped Bars — All Individual Indices
-fig, ax = plt.subplots(figsize=(12, 5.5))
-x = np.arange(len(ring_order))
-w3 = 0.15
+# 5.4 Grouped Bars — All Individual Indices — SPLIT BY STATE
+fig, axes = plt.subplots(2, 1, figsize=(15, 11))
 index_colors = ['#58a6ff','#ff7b72','#2ea043','#f9c74f','#d2a8ff']
 
-for i, (idx_name, clr) in enumerate(zip(index_names, index_colors)):
-    vals = [idx_df[idx_df['ring']==r][idx_name].values[0] for r in ring_order]
-    ax.bar(x + i*w3, vals, w3, label=idx_name, color=clr, edgecolor='#30363d', linewidth=0.5)
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    sub = idx_df[idx_df['state']==state]
+    x = np.arange(len(ring_order))
+    w3 = 0.15
+    for i, (idx_name, clr) in enumerate(zip(idx_names, index_colors)):
+        vals = [sub[sub['ring']==r][idx_name].values[0] for r in ring_order]
+        ax.bar(x + i*w3, vals, w3, label=idx_name, color=clr, edgecolor='#30363d')
+    
+    ax.set_xticks(x + 2*w3)
+    ax.set_xticklabels(ring_order)
+    ax.set_title(f'{state}: Indices by Ring')
+    ax.legend(fontsize=8)
 
-ax.set_xticks(x + 2*w3)
-ax.set_xticklabels(ring_order)
-ax.set_ylabel('Normalized Index Value (0–1)')
-ax.set_title('All Environmental Indices by Buffer Ring')
-ax.legend(framealpha=0.8)
-ax.grid(axis='y', alpha=0.3)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'indices_all_bars.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 5.5 Temporal Indices (Size-class based — for Task 4)
+# 5.5 Temporal Indices — SPLIT BY STATE
 t4_idx = []
-years_list = ['2016','2020','2025']
-for yr in years_list:
-    sub = t4[t4['year']==yr]
-    total_area = sub['area_ha'].sum()
-    total_count = sub['count'].sum()
-    small_count = sub[sub['size_class'].isin(['C1_<1ha','C2_1-50ha'])]['count'].sum()
-    large_area = sub[sub['size_class'].isin(['C5_200-300ha','C6_>300ha'])]['area_ha'].sum()
-    
-    t4_idx.append({
-        'Year': yr,
-        'Total Area (ha)': total_area,
-        'Fragmentation (count/area)': total_count/total_area if total_area > 0 else 0,
-        'Small WB Ratio': small_count/total_count if total_count > 0 else 0,
-        'Large WB Area Share': large_area/total_area if total_area > 0 else 0,
-    })
+for state in states_list:
+    st_sub = t4[t4['state']==state]
+    for yr in ['2016','2020','2025']:
+        yr_sub = st_sub[st_sub['year']==yr]
+        ta = yr_sub['area_ha'].sum()
+        tc = yr_sub['count'].sum()
+        t4_idx.append({'state': state, 'year': yr, 'area': ta, 'frag': tc/ta if ta>0 else 0})
 
 t4_idx_df = pd.DataFrame(t4_idx)
-
-# Normalize
-for col in ['Total Area (ha)','Fragmentation (count/area)','Small WB Ratio','Large WB Area Share']:
+# Normalize 0-1 per metric
+for col in ['area','frag']:
     mn, mx = t4_idx_df[col].min(), t4_idx_df[col].max()
-    t4_idx_df[col+'_norm'] = (t4_idx_df[col] - mn)/(mx-mn) if mx > mn else 0.5
+    t4_idx_df[col+'_n'] = (t4_idx_df[col] - mn) / (mx - mn)
 
 print("\n=== Temporal Water Body Indices ===")
 print(t4_idx_df.to_string(index=False))
 
 # %%
-# 5.6 Temporal Index Plot
-fig, ax = plt.subplots(figsize=(10, 5))
-norm_cols = [c for c in t4_idx_df.columns if c.endswith('_norm')]
-norm_labels = [c.replace('_norm','') for c in norm_cols]
-norm_colors = ['#58a6ff','#f778ba','#3fb950','#f0883e']
+# 5.6 Temporal Index Plot — SPLIT BY STATE
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    sub = t4_idx_df[t4_idx_df['state']==state]
+    ax.plot(sub['year'], sub['area_n'], 'o-', label='Total Area (Norm)', color='#58a6ff', linewidth=3)
+    ax.plot(sub['year'], sub['frag_n'], 'o--', label='Fragmentation (Norm)', color='#f778ba', linewidth=2)
+    ax.set_title(f'{state}: Temporal Trends')
+    ax.set_ylim(-0.1, 1.1)
+    ax.legend()
 
-for col, lbl, clr in zip(norm_cols, norm_labels, norm_colors):
-    ax.plot(years_list, t4_idx_df[col].values, 'o-', label=lbl, color=clr, linewidth=2, markersize=8)
-
-ax.set_xlabel('Year')
-ax.set_ylabel('Normalized Value (0–1)')
-ax.set_title('Normalized Water Body Metrics Over Time — Punjab & Uttarakhand')
-ax.legend(fontsize=8, framealpha=0.8)
-ax.grid(alpha=0.3)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'indices_temporal.png', bbox_inches='tight')
 plt.show()
 
 # %% [markdown]
-# ### Normalization & Indexing — Key Insights
+# ### State-Specific Stress Analysis
 #
-# 1. **Highest environmental stress**: The **0-2km ring** ranks highest on the ESI, indicating that areas immediately adjacent to major water bodies face the greatest combined pressure from water loss, urbanization, and vegetation change.
-# 2. **Water Body Loss Index**: Strongest in the 0-2km ring (35.5% water decline), confirming that water bodies are literally shrinking inward.
-# 3. **Urbanization Pressure**: More uniform across rings but peaks in 2-4km ring — settlements grow outward from existing built-up areas toward water.
-# 4. **Vegetation change** is primarily driven by reclassification rather than real loss in Punjab's agricultural landscape. In Uttarakhand, forest cover changes are more ecologically significant.
-# 5. **Temporal indices** show monotonic decline in total water area with surprisingly stable fragmentation ratio — implying proportional shrinkage across all sizes.
+# 1. **Punjab Stress Profile**: Driven by **WBLI** (Water Loss) and **UPI** (Urbanization). The 0-2km and 2-4km rings are under extreme agricultural-to-urban transition pressure.
+# 2. **Uttarakhand Stress Profile**: Driven by **VCI** (Vegetation Change) and **WBLI**. The stress radar is more balanced, reflecting natural ecosystem dynamics and reservoir fluctuations.
+# 3. **Correlation Contrasts**: Punjab shows a tighter correlation between built-up growth and water loss, suggesting direct land reclamation.
+# 4. **Temporal Stability**: Uttarakhand shows higher fragmentation stability, while Punjab's water bodies are shrinking into smaller, more isolated patches.
 
 # %% [markdown]
 # ---
