@@ -45,7 +45,7 @@
 - Major rivers: Ganga, Yamuna, Alaknanda, Bhagirathi
 - Water features: Glacial lakes, dam reservoirs (Tehri, Nanak Sagar), natural lakes (Nainital, Bhimtal)
 
-**Visual:** Side-by-side state boundary maps from GEE
+**Visual:** Side-by-side state boundary maps from GEE + `comp_state_profile.png` (Comparative LULC DNA)
 
 ---
 
@@ -121,7 +121,7 @@ Python Analysis → Comparative Visualizations → Indices → Insights
 ## Slide 8: Task 4 — Results (Area Trends)
 **Title:** Total Water Body Area Trends — Both States
 
-**Visuals:** `task4_area_bars.png` + `task4_temporal_trend.png`
+**Visuals:** `comp_water_trends.png` (PB vs UK Comparison) + `task4_temporal_trend.png`
 
 **Key Finding (Punjab):**
 - Total water area: **38,619 ha → 19,440 ha → 13,441 ha** (−65.2% over decade)
@@ -188,7 +188,7 @@ var ring = b4.difference(b2); // Creates donut-shaped 2-4km ring
 ## Slide 12: Task 5 — Change Analysis
 **Title:** LULC Change 2020→2025 Around Water Bodies
 
-**Visuals:** `task5_change_heatmap.png` + `task5_change_by_class.png`
+**Visuals:** `comp_urban_heatmap.png` (Comparative Urban Density) + `task5_change_by_class.png`
 
 **Key Changes — Punjab (2020→2025):**
 | Class | 0–2 km | 2–4 km | 4–8 km | 8–10 km |

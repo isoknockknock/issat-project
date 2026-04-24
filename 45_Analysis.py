@@ -911,3 +911,96 @@ plt.show()
 # - `.buffer()` expands geometry by specified distance
 # - `.difference()` creates donut/ring shapes by subtracting inner from outer buffer
 # - `reduceRegion` with pixel area calculates total area of each LULC class in each ring
+
+# %% [markdown]
+# ---
+# ## 8. Comparative State Analysis — High-Impact Dashboards
+#
+# These figures are designed specifically for the final presentation to provide immediate visual contrast between Punjab and Uttarakhand.
+
+# %%
+# 8.1 State "DNA" Profile (Comparison for Slide 3)
+# Based on average LULC composition across all rings in 2025
+profile_data = []
+for st in t5x['state'].unique():
+    st_sub = t5x[(t5x['state']==st) & (t5x['year']=='2025')]
+    total = st_sub['area_ha'].sum()
+    for lulc in ['Tree cover', 'Cropland', 'Built-up', 'Water']:
+        val = st_sub[st_sub['lulc_name']==lulc]['area_ha'].sum()
+        profile_data.append({'State': st, 'Class': lulc, 'Percentage': val/total*100})
+
+pdf = pd.DataFrame(profile_data)
+
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.barplot(data=pdf, x='Percentage', y='Class', hue='State', palette=['#58a6ff','#3fb950'], ax=ax, edgecolor='#30363d')
+
+ax.set_title('State Land Cover "DNA": Punjab vs Uttarakhand (2025)', fontsize=15, pad=20)
+ax.set_xlabel('Percentage of Analyzed Buffer Zones (%)')
+ax.set_ylabel('')
+ax.grid(axis='x', alpha=0.3)
+ax.legend(title='State', framealpha=0.8)
+
+# Annotate bars
+for p in ax.patches:
+    width = p.get_width()
+    if width > 0:
+        ax.annotate(f'{width:.1f}%', (width + 1, p.get_y() + p.get_height()/2),
+                    ha='left', va='center', fontsize=10, color='#c9d1d9')
+
+plt.tight_layout()
+plt.savefig(FIGDIR + 'comp_state_profile.png', bbox_inches='tight')
+plt.show()
+
+# %%
+# 8.2 The "Water Crisis" Dashboard (Comparative Trends)
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+
+# Punjab (from CSV+xlsx logic)
+pb_years = ['2016', '2020', '2025']
+pb_vals = [38619, 19440, 13441]
+ax1.fill_between(pb_years, pb_vals, color='#58a6ff', alpha=0.3)
+ax1.plot(pb_years, pb_vals, 'o-', color='#58a6ff', linewidth=3, markersize=10)
+ax1.set_title('Punjab Water Area Trend', fontsize=14, fontweight='bold')
+ax1.set_ylabel('Area (ha)')
+ax1.grid(alpha=0.2)
+
+# Uttarakhand (from xlsx)
+uk_years = ['2016', '2020', '2025']
+uk_vals = []
+for yr in uk_years:
+    val = t5x[(t5x['state']=='Uttarakhand') & (t5x['year']==yr) & (t5x['lulc_name']=='Water')]['area_ha'].sum()
+    uk_vals.append(val)
+
+ax2.fill_between(uk_years, uk_vals, color='#3fb950', alpha=0.3)
+ax2.plot(uk_years, uk_vals, 'o-', color='#3fb950', linewidth=3, markersize=10)
+ax2.set_title('Uttarakhand Water Area Trend', fontsize=14, fontweight='bold')
+ax2.grid(alpha=0.2)
+
+fig.suptitle('Comparative Surface Water Dynamics (2016–2025)', fontsize=16, y=1.05)
+plt.tight_layout()
+plt.savefig(FIGDIR + 'comp_water_trends.png', bbox_inches='tight')
+plt.show()
+
+# %%
+# 8.3 Built-up Encroachment: The "Urban Heatmap"
+# Comparing built-up % in rings for both states in 2025
+t5_nz = t5x[t5x['area_ha'] > 0]
+enc_data = t5_nz[t5_nz['lulc_name']=='Built-up'].pivot_table(index='ring', columns=['state', 'year'], values='area_ha', aggfunc='sum')
+# Normalize by total area of ring to get %
+ring_totals = t5_nz.pivot_table(index='ring', columns=['state', 'year'], values='area_ha', aggfunc='sum')
+enc_pct = (enc_data / ring_totals * 100).fillna(0)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+sns.heatmap(enc_pct['Punjab'], annot=True, fmt=".1f", cmap='YlOrRd', ax=ax1, cbar_kws={'label': 'Built-up %'})
+ax1.set_title('Punjab: Urban Density by Ring')
+
+sns.heatmap(enc_pct['Uttarakhand'], annot=True, fmt=".1f", cmap='YlOrRd', ax=ax2, cbar_kws={'label': 'Built-up %'})
+ax2.set_title('Uttarakhand: Urban Density by Ring')
+
+fig.suptitle('Urban Encroachment Comparison (%)', fontsize=16, y=1.05)
+plt.tight_layout()
+plt.savefig(FIGDIR + 'comp_urban_heatmap.png', bbox_inches='tight')
+plt.show()
+
+print("\n🚀 All high-impact dashboards generated in 45_figures/")
