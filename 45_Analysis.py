@@ -43,32 +43,17 @@ FIGDIR = '45_figures/'
 # ## 1. Data Loading & Preprocessing
 
 # %%
-# --- Task 4 Data (CSV — Punjab only, from original GEE export) ---
-t4 = pd.read_csv('45_Task4_SizeClass.csv')
-t4 = t4[['class','count','total_area','year']].copy()
-t4.columns = ['size_class','count','area_ha','year']
+# --- Task 4 Data (Multi-state CSV from GEE) ---
+t4_raw = pd.read_csv('Task4_SizeClass_BothStates.csv')
+t4 = t4_raw.rename(columns={'class': 'size_class', 'total_area': 'area_ha'})[['state', 'year', 'size_class', 'count', 'area_ha']].copy()
 t4['year'] = t4['year'].astype(str)
-t4['state'] = 'Punjab'  # CSV data is Punjab-only
-
-# %%
-# --- Task 5 Data (CSV — Punjab only) ---
-t5 = pd.read_csv('45_Task5_LULC_Buffers.csv')
-t5 = t5[['area','class','ring','year']].copy()
-t5.columns = ['area_sqm','lulc_code','ring','year']
-t5['area_ha'] = t5['area_sqm'] / 10000.0
-t5['year'] = t5['year'].astype(str)
-t5['state'] = 'Punjab'  # CSV data is Punjab-only
 
 wc_names = {10:'Tree cover',20:'Shrubland',30:'Grassland',40:'Cropland',
              50:'Built-up',60:'Bare/sparse',70:'Snow/ice',80:'Water',
              90:'Herbaceous wetland',95:'Mangroves',100:'Moss/lichen'}
-t5['lulc_name'] = t5['lulc_code'].map(wc_names)
 
 ring_order = ['0-2km','2-4km','4-8km','8-10km']
-t5['ring'] = pd.Categorical(t5['ring'], categories=ring_order, ordered=True)
-
-print("\n=== Task 5: LULC Buffer Analysis — Punjab CSV (sample) ===")
-print(t5.head(15).to_string(index=False))
+states_list = ['Punjab', 'Uttarakhand']
 
 # %%
 # --- Task 5 from xlsx (includes BOTH Punjab & Uttarakhand, all 3 years) ---
@@ -149,95 +134,90 @@ print(pivot_area[['2016','2020','2025']].round(1).to_string())
 print(f"\nTotals: 2016={pivot_area['2016'].sum():.1f}, 2020={pivot_area['2020'].sum():.1f}, 2025={pivot_area['2025'].sum():.1f}")
 
 # %%
-# 2.2 Grouped Bar Chart — Water Body Count
-fig, ax = plt.subplots(figsize=(10, 5.5))
+# 2.2 Grouped Bar Chart — SPLIT BY STATE
+fig, axes = plt.subplots(2, 1, figsize=(12, 11))
 x = np.arange(len(class_labels))
 w = 0.25
 colors = ['#58a6ff','#3fb950','#f778ba']
 
-for i, yr in enumerate(['2016','2020','2025']):
-    vals = pivot_count[yr].values
-    bars = ax.bar(x + i*w, vals, w, label=yr, color=colors[i], edgecolor='#30363d', linewidth=0.5)
-    for bar, v in zip(bars, vals):
-        if v > 0:
-            ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+20, f'{int(v)}',
-                    ha='center', va='bottom', fontsize=7, color='#c9d1d9')
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    st_sub = t4[t4['state']==state]
+    piv = st_sub.pivot_table(index='size_label', columns='year', values='count', aggfunc='sum').reindex(class_labels)
+    
+    for i, yr in enumerate(['2016','2020','2025']):
+        vals = piv[yr].values if yr in piv.columns else np.zeros(len(class_labels))
+        bars = ax.bar(x + i*w, vals, w, label=yr, color=colors[i], edgecolor='#30363d')
+        for bar, v in zip(bars, vals):
+            if v > 0: ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+10, f'{int(v)}', ha='center', fontsize=7)
+    
+    ax.set_title(f'{state}: Water Body Count by Size Class')
+    ax.set_xticks(x + w)
+    ax.set_xticklabels(class_labels)
+    ax.legend()
 
-ax.set_xlabel('Water Body Size Class')
-ax.set_ylabel('Number of Water Bodies')
-ax.set_title('Water Body Count by Size Class — Punjab & Uttarakhand (2016, 2020, 2025)')
-ax.set_xticks(x + w)
-ax.set_xticklabels(class_labels, rotation=15)
-ax.legend(framealpha=0.8)
-ax.grid(axis='y', alpha=0.3)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_count_bars.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 2.3 Grouped Bar Chart — Water Body Area
-fig, ax = plt.subplots(figsize=(10, 5.5))
-for i, yr in enumerate(['2016','2020','2025']):
-    vals = pivot_area[yr].values
-    bars = ax.bar(x + i*w, vals, w, label=yr, color=colors[i], edgecolor='#30363d', linewidth=0.5)
-    for bar, v in zip(bars, vals):
-        if v > 100:
-            ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+100, f'{v:.0f}',
-                    ha='center', va='bottom', fontsize=6.5, color='#c9d1d9')
+# 2.3 Grouped Bar Chart — Area — SPLIT BY STATE
+fig, axes = plt.subplots(2, 1, figsize=(12, 11))
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    st_sub = t4[t4['state']==state]
+    piv = st_sub.pivot_table(index='size_label', columns='year', values='area_ha', aggfunc='sum').reindex(class_labels)
+    
+    for i, yr in enumerate(['2016','2020','2025']):
+        vals = piv[yr].values if yr in piv.columns else np.zeros(len(class_labels))
+        bars = ax.bar(x + i*w, vals, w, label=yr, color=colors[i], edgecolor='#30363d')
+    
+    ax.set_title(f'{state}: Total Water Area by Size Class (ha)')
+    ax.set_xticks(x + w)
+    ax.set_xticklabels(class_labels)
+    ax.legend()
 
-ax.set_xlabel('Water Body Size Class')
-ax.set_ylabel('Total Area (hectares)')
-ax.set_title('Total Water Body Area by Size Class — Punjab & Uttarakhand (2016, 2020, 2025)')
-ax.set_xticks(x + w)
-ax.set_xticklabels(class_labels, rotation=15)
-ax.legend(framealpha=0.8)
-ax.grid(axis='y', alpha=0.3)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_area_bars.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 2.4 Pie Charts — Area Distribution per Year
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+# 2.4 Pie Charts — Area Distribution — SPLIT BY STATE
+fig, axes = plt.subplots(2, 3, figsize=(16, 10))
 pie_colors = ['#79c0ff','#58a6ff','#388bfd','#1f6feb','#0d419d','#051d4d']
 
-for idx, yr in enumerate(['2016','2020','2025']):
-    vals = pivot_area[yr].values
-    mask = vals > 0
-    axes[idx].pie(vals[mask], labels=[class_labels[j] for j in range(len(class_labels)) if mask[j]],
-                  autopct='%1.1f%%', colors=[pie_colors[j] for j in range(len(class_labels)) if mask[j]],
-                  textprops={'color':'#c9d1d9','fontsize':8}, pctdistance=0.75,
-                  wedgeprops={'edgecolor':'#30363d','linewidth':0.5})
-    axes[idx].set_title(f'{yr}', fontsize=14, fontweight='bold')
+for s_idx, state in enumerate(states_list):
+    st_sub = t4[t4['state']==state]
+    piv = st_sub.pivot_table(index='size_label', columns='year', values='area_ha', aggfunc='sum').reindex(class_labels)
+    for y_idx, yr in enumerate(['2016','2020','2025']):
+        ax = axes[s_idx, y_idx]
+        vals = piv[yr].values if yr in piv.columns else np.zeros(len(class_labels))
+        mask = vals > 0
+        if mask.any():
+            ax.pie(vals[mask], labels=[class_labels[j] for j in range(len(class_labels)) if mask[j]],
+                   autopct='%1.1f%%', colors=[pie_colors[j] for j in range(len(class_labels)) if mask[j]],
+                   textprops={'color':'white','fontsize':7})
+        ax.set_title(f'{state} ({yr})')
 
-fig.suptitle('Water Body Area Distribution by Size Class — Punjab & Uttarakhand', fontsize=14, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_pie_charts.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 2.5 Temporal Trend — Total Count and Area
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+# 2.5 Temporal Trend — SPLIT BY STATE
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+for s_idx, state in enumerate(states_list):
+    st_sub = t4[t4['state']==state]
+    summary = st_sub.groupby('year').agg({'count':'sum', 'area_ha':'sum'}).reindex(['2016','2020','2025'])
+    
+    # Count plot
+    axes[s_idx, 0].plot(summary.index, summary['count'], 'o-', color='#58a6ff', linewidth=3)
+    axes[s_idx, 0].set_title(f'{state}: Total Count Trend')
+    
+    # Area plot
+    axes[s_idx, 1].plot(summary.index, summary['area_ha'], 'o-', color='#3fb950', linewidth=3)
+    axes[s_idx, 1].set_title(f'{state}: Total Area Trend (ha)')
 
-years = ['2016','2020','2025']
-total_counts = [pivot_count[y].sum() for y in years]
-total_areas = [pivot_area[y].sum() for y in years]
-
-ax1.plot(years, total_counts, 'o-', color='#58a6ff', linewidth=2.5, markersize=10)
-for i, (y, v) in enumerate(zip(years, total_counts)):
-    ax1.annotate(f'{int(v)}', (y, v), textcoords="offset points", xytext=(0,12), ha='center', fontsize=11, color='#58a6ff')
-ax1.set_title('Total Water Body Count Over Time')
-ax1.set_ylabel('Count')
-ax1.grid(alpha=0.3)
-
-ax2.plot(years, total_areas, 'o-', color='#3fb950', linewidth=2.5, markersize=10)
-for i, (y, v) in enumerate(zip(years, total_areas)):
-    ax2.annotate(f'{v:,.0f} ha', (y, v), textcoords="offset points", xytext=(0,12), ha='center', fontsize=11, color='#3fb950')
-ax2.set_title('Total Water Body Area Over Time')
-ax2.set_ylabel('Area (hectares)')
-ax2.grid(alpha=0.3)
-
-fig.suptitle('Temporal Trend of Water Bodies — Punjab & Uttarakhand', fontsize=14, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task4_temporal_trend.png', bbox_inches='tight')
 plt.show()
@@ -477,71 +457,49 @@ plt.show()
 # - **Simpson's Diversity Index** across size classes
 
 # %%
-# 4.1 Fragmentation Metrics
-frag_records = []
-for yr in ['2016','2020','2025']:
-    sub = t4[t4['year']==yr]
-    total_count = sub['count'].sum()
-    total_area = sub['area_ha'].sum()
-    largest_class_area = sub['area_ha'].max()
+# 4.1 Fragmentation Metrics — SPLIT BY STATE
+fig, axes = plt.subplots(2, 3, figsize=(16, 11))
+metrics = ['Total Count','Total Area (ha)','Fragmentation Index']
+
+for s_idx, state in enumerate(states_list):
+    frag_records = []
+    st_sub = t4[t4['state']==state]
+    for yr in ['2016','2020','2025']:
+        sub = st_sub[st_sub['year']==yr]
+        tc = sub['count'].sum()
+        ta = sub['area_ha'].sum()
+        fi = tc / ta if ta > 0 else 0
+        frag_records.append({'Year': yr, 'Total Count': tc, 'Total Area (ha)': ta, 'Fragmentation Index': fi})
     
-    fi = total_count / total_area if total_area > 0 else 0
-    mps = total_area / total_count if total_count > 0 else 0
-    lpi = (largest_class_area / total_area * 100) if total_area > 0 else 0
-    
-    # Simpson's Diversity Index
-    proportions = sub['area_ha'].values / total_area if total_area > 0 else np.zeros(len(sub))
-    sdi = 1 - np.sum(proportions**2)
-    
-    frag_records.append({
-        'Year': yr, 'Total Count': int(total_count), 'Total Area (ha)': round(total_area, 1),
-        'Fragmentation Index': round(fi, 4), 'Mean Patch Size (ha)': round(mps, 2),
-        'Largest Patch Index (%)': round(lpi, 1), "Simpson's Diversity": round(sdi, 4)
-    })
+    df = pd.DataFrame(frag_records)
+    for m_idx, met in enumerate(metrics):
+        ax = axes[s_idx, m_idx]
+        ax.plot(df['Year'], df[met], 'o-', linewidth=2.5)
+        ax.set_title(f'{state}: {met}')
+        ax.grid(alpha=0.3)
 
-frag_df = pd.DataFrame(frag_records)
-print("=== Water Body Landscape Metrics ===")
-print(frag_df.to_string(index=False))
-
-# %%
-# 4.2 Multi-metric Dashboard
-fig, axes = plt.subplots(2, 3, figsize=(16, 9))
-metrics = ['Total Count','Total Area (ha)','Fragmentation Index','Mean Patch Size (ha)',
-           'Largest Patch Index (%)','Simpson\'s Diversity']
-metric_colors = ['#58a6ff','#3fb950','#f778ba','#f0883e','#d2a8ff','#79c0ff']
-
-for idx, (met, clr) in enumerate(zip(metrics, metric_colors)):
-    ax = axes[idx//3][idx%3]
-    vals = frag_df[met].values
-    yrs = frag_df['Year'].values
-    ax.plot(yrs, vals, 'o-', color=clr, linewidth=2.5, markersize=10)
-    for y, v in zip(yrs, vals):
-        ax.annotate(f'{v}', (y, v), textcoords="offset points", xytext=(0,10),
-                    ha='center', fontsize=10, color=clr, fontweight='bold')
-    ax.set_title(met, fontsize=11)
-    ax.grid(alpha=0.3)
-    ax.set_xlabel('Year')
-
-fig.suptitle('Water Body Landscape Metrics — Punjab & Uttarakhand', fontsize=15, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'extra_fragmentation_dashboard.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 4.3 Size Class Shift Analysis — Normalized Proportions
-fig, ax = plt.subplots(figsize=(10, 6))
-for yr, clr, ls in [('2016','#58a6ff','-'),('2020','#3fb950','--'),('2025','#f778ba',':')]:
-    sub = t4[t4['year']==yr].sort_values('size_label')
-    total = sub['area_ha'].sum()
-    pcts = (sub['area_ha'].values / total * 100)
-    ax.plot(class_labels, pcts, ls, marker='o', color=clr, linewidth=2, markersize=7, label=yr)
+# 4.3 Size Class Shift Analysis — SPLIT BY STATE
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+for s_idx, state in enumerate(states_list):
+    ax = axes[s_idx]
+    st_sub = t4[t4['state']==state]
+    for yr, clr, ls in [('2016','#58a6ff','-'),('2020','#3fb950','--'),('2025','#f778ba',':')]:
+        sub = st_sub[st_sub['year']==yr].sort_values('size_label')
+        total = sub['area_ha'].sum()
+        pcts = (sub['area_ha'].values / total * 100) if total > 0 else np.zeros(len(class_labels))
+        ax.plot(class_labels, pcts, ls, marker='o', color=clr, label=yr)
     
-ax.set_xlabel('Size Class')
-ax.set_ylabel('% of Total Water Area')
-ax.set_title('Proportional Distribution Shift Across Size Classes')
-ax.legend()
-ax.grid(alpha=0.3)
-plt.xticks(rotation=15)
+    ax.set_title(f'{state}: Proportional Shift')
+    ax.set_xlabel('Size Class')
+    ax.set_ylabel('% of Total Area')
+    ax.legend()
+    ax.grid(alpha=0.3)
+
 plt.tight_layout()
 plt.savefig(FIGDIR + 'extra_size_shift.png', bbox_inches='tight')
 plt.show()
