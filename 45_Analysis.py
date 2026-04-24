@@ -22,6 +22,8 @@ import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 import warnings
 warnings.filterwarnings('ignore')
+import matplotlib
+matplotlib.use('Agg')
 
 # Style setup
 plt.rcParams.update({
