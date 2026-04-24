@@ -1,48 +1,30 @@
-# Visual Insights Cheat Sheet (State-Specific)
+# Visual Insights Cheat Sheet (3-Period Comparison)
 
-### 🌍 Comparative Dashboards (PB vs UK)
-*   **comp_state_profile.png**
-    - **Punjab**: Dominated by Cropland (73%); shows a highly engineered agricultural landscape.
-    - **Uttarakhand**: Dominated by Tree Cover and Shrubland; highlights a natural, mountainous ecosystem.
+### 🌍 Comparative Dashboards (2016, 2020, 2025)
 *   **comp_water_trends.png**
-    - **Punjab**: Steep decline from 38k ha → 13k ha (−65%); reflects heavy irrigation pressure.
-    - **Uttarakhand**: Decline from 88k ha → 42k ha (−52%); reflects significant changes in mountain reservoir levels and glacial melt cycles.
-*   **comp_urban_heatmap.png**
-    - **Punjab**: Urban density peaks in the 2-4km ring, showing town centers growing *away* from flood-prone areas.
-    - **Uttarakhand**: Urban pressure is most intense in the 0-2km valley floors where buildable land is scarce near rivers.
+    - **Era 1 (2016-2020)**: Steepest decline for both states; high initial impact on large reservoirs.
+    - **Era 2 (2020-2025)**: Continued decline but at a slightly slower rate, showing the "long-term drying" trend.
 
-### 💧 Task 4: Size Classification (Split Panels)
-*   **task4_count_bars.png**
-    - **Punjab**: Loss of ~1,000 small ponds (<1ha) since 2016; indicates disappearance of local village tanks.
-    - **Uttarakhand**: Stable small body count (~1,300–1,600); mountain springs/ponds are more resilient than plains-based ones.
-*   **task4_area_bars.png**
-    - **Punjab**: Significant shrinkage in the largest reservoirs (>300ha), which halved in area.
-    - **Uttarakhand**: Large reservoirs are the primary area holders (26k ha in 2016); their decline to 18k ha in 2025 is the main driver of state-wide water loss.
-*   **task4_pie_charts.png**
-    - **Punjab**: The ">300 ha" class shrunk from 64% to 48% of total area, showing "Large body fragmentation."
-    - **Uttarakhand**: Consistently more "balanced" distribution across size classes compared to Punjab.
-*   **task4_temporal_trend.png**
-    - **Punjab**: Shows a steady, linear decline in area.
-    - **Uttarakhand**: Shows a sharper drop between 2016 and 2020, likely due to climate-driven glacial runoff changes.
-
-### 🏗️ Task 5: Buffer Zone Analysis (Split Panels)
+### 🏗️ Task 5: Buffer Zone Evolution (3 Columns)
 *   **task5_lulc_stacked.png**
-    - **Punjab**: Every buffer ring up to 10km is dominated by Cropland (~75%+).
-    - **Uttarakhand**: Near-water zones (0-2km) have high Tree Cover (~40%), which thins out in outer rings.
+    - **Punjab**: Cropland dominance is constant across all 3 years (~75%), but **Built-up** area shows a visible expansion in the 2025 column.
+    - **Uttarakhand**: Tree cover shows a slight "dip and recovery" pattern across the three years in the near-water (0-2km) rings.
 *   **task5_change_by_class.png**
-    - **Punjab**: Primary driver of water loss is **Cropland expansion** into former wetlands.
-    - **Uttarakhand**: Water loss is balanced by **Tree cover gain** in protected mountain zones.
+    - **Punjab (16-20 vs 20-25)**: Era 1 was dominated by Water → Bare Soil; Era 2 is dominated by Bare Soil → Built-up/Cropland.
+    - **Uttarakhand (16-20 vs 20-25)**: Era 1 saw intense Tree Cover loss in valleys; Era 2 shows a stabilization and minor reforestation.
 *   **task5_radar.png**
-    - **Punjab**: Profile is heavily "skewed" toward Cropland.
-    - **Uttarakhand**: Profile shows a "diverse" mix of forest, water, and shrubland.
+    - **Evolution**: The "shape" of the radar plot expands toward the **Built-up** and **Grassland** axes over the three periods, shrinking away from the **Water** axis.
 *   **task5_change_heatmap.png**
-    - **Punjab**: The 0-2km ring shows the most intense LULC "churn" (Water → Cropland).
-    - **Uttarakhand**: Outer rings (4-10km) show stability, with most changes occurring right at the river edge.
+    - **Intensity**: Era 1 (16-20) shows higher "Red" intensity (loss) in water area; Era 2 (20-25) shows higher "Green" intensity in Tree Cover gains.
 
-### 📈 Advanced Metrics
-*   **indices_radar.png**
-    - **Punjab**: High stress in Urbanization Index (UPI) in outer rings.
-    - **Uttarakhand**: Lower overall stress; primary change is in Vegetation indices.
-*   **extra_builtup_vs_water.png**
-    - **Punjab**: Strong negative correlation (Concrete replaces Water).
-    - **Uttarakhand**: Weak correlation; climate and topography matter more than urban spread here.
+### 📈 Size Class & Metrics (All 3 Years)
+*   **task4_count_bars.png**
+    - **2016 Baseline**: Shows the original massive count of small bodies (over 3,000 combined).
+    - **2025 Result**: The "final state" shows over 4,000 bodies have been lost or fragmented since 2016.
+*   **task4_pie_charts.png**
+    - **Structural Shift**: Highlights how the "Large Body" (>300ha) dominance has been chipped away over the three time steps, making the landscape more fragmented.
+*   **task4_temporal_trend.png**
+    - **State Contrast**: Punjab's decline is linear (downward stairs); Uttarakhand's decline is "concave" (sharper initial drop).
+
+### 🚀 Key Narrative for your Presentation:
+"By looking at **2016, 2020, and 2025**, we see that the water crisis started intensely in the first four years (Era 1) and has since transitioned into a permanent land-cover shift where former water beds are now becoming permanent agricultural or urban land (Era 2)."

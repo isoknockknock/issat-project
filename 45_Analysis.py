@@ -311,13 +311,27 @@ lulc_colors = {
     'Mangroves':'#1b5e20', 'Moss/lichen':'#9e9e9e', 'Other (DW unclassed)':'#444444'
 }
 
-fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharey=True)
+# %%
+# 3.2 Stacked Bar — LULC Composition — 2016, 2020, 2025 — SPLIT BY STATE
+lulc_colors = {
+    'Tree cover':'#2ea043', 'Shrubland':'#8b6914', 'Grassland':'#a5d6a7',
+    'Cropland':'#f9c74f', 'Built-up':'#ff7b72', 'Bare/sparse':'#d4a574',
+    'Snow/ice':'#e0e0e0', 'Water':'#58a6ff', 'Herbaceous wetland':'#7ecbb0',
+    'Mangroves':'#1b5e20', 'Moss/lichen':'#9e9e9e', 'Other (DW unclassed)':'#444444'
+}
+
+fig, axes = plt.subplots(2, 3, figsize=(18, 11), sharey=True)
 
 for s_idx, state in enumerate(states_list):
-    for y_idx, yr in enumerate(['2020','2025']):
+    for y_idx, yr in enumerate(['2016','2020','2025']):
         ax = axes[s_idx, y_idx]
         sub = t5_nz[(t5_nz['state']==state) & (t5_nz['year']==yr)]
+        if sub.empty: 
+            ax.text(0.5, 0.5, f'No {yr} Data', ha='center')
+            continue
+            
         piv = sub.pivot_table(index='ring', columns='lulc_name', values='area_ha', aggfunc='sum').fillna(0)
+        piv = piv.reindex(ring_order)
         piv_pct = piv.div(piv.sum(axis=1), axis=0) * 100
         
         bottom = np.zeros(len(ring_order))
@@ -331,86 +345,90 @@ for s_idx, state in enumerate(states_list):
         ax.set_yticks(range(len(ring_order)))
         ax.set_yticklabels(ring_order)
         ax.set_title(f'{state} — {yr}')
-        if s_idx == 1: ax.set_xlabel('% of Total Area')
+        if s_idx == 1: ax.set_xlabel('% Area')
         if y_idx == 0: ax.set_ylabel('Buffer Ring')
 
 # Single legend
-handles, labels_leg = axes[0,0].get_legend_handles_labels()
+handles, labels_leg = axes[0,1].get_legend_handles_labels()
 fig.legend(handles, labels_leg, loc='lower center', ncol=6, fontsize=8, framealpha=0.8, bbox_to_anchor=(0.5, -0.05))
-fig.suptitle('LULC Composition Around Major Water Bodies — Punjab vs Uttarakhand', fontsize=16, y=1.02)
+fig.suptitle('LULC Composition Around Major Water Bodies (2016–2025)', fontsize=16, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_lulc_stacked.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 3.3 Change Analysis — Absolute change 2020→2025 — SPLIT BY STATE
-fig, axes = plt.subplots(1, 2, figsize=(18, 7))
+# 3.3 Change Analysis — Comparing Two Eras (2016→2020 vs 2020→2025)
+fig, axes = plt.subplots(2, 2, figsize=(18, 12))
 
 for s_idx, state in enumerate(states_list):
-    ax = axes[s_idx]
-    change_records = []
-    st_sub = t5_nz[t5_nz['state']==state]
-    for ring in ring_order:
-        for name in st_sub['lulc_name'].unique():
-            a20 = st_sub[(st_sub['year']=='2020') & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
-            a25 = st_sub[(st_sub['year']=='2025') & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
-            if a20 > 0 or a25 > 0:
-                change_records.append({'ring': ring, 'lulc': name, 'change_ha': a25 - a20})
-    
-    ch_df = pd.DataFrame(change_records)
-    x_pos = np.arange(len(ring_order))
-    w2 = 0.15
-    plot_classes = ['Cropland','Built-up','Water','Tree cover','Grassland']
-    for i, cls in enumerate(plot_classes):
-        vals = [ch_df[(ch_df['lulc']==cls) & (ch_df['ring']==r)]['change_ha'].sum() for r in ring_order]
-        ax.bar(x_pos + i*w2, vals, w2, label=cls, color=lulc_colors.get(cls), edgecolor='#30363d')
-    
-    ax.axhline(0, color='white', linewidth=0.8)
-    ax.set_xticks(x_pos + 2*w2)
-    ax.set_xticklabels(ring_order)
-    ax.set_title(f'{state}: Area Change 2020→2025')
-    ax.set_ylabel('Change (ha)')
-    ax.legend(fontsize=8)
+    for e_idx, (y1, y2) in enumerate([('2016','2020'), ('2020','2025')]):
+        ax = axes[s_idx, e_idx]
+        st_sub = t5_nz[t5_nz['state']==state]
+        change_records = []
+        for ring in ring_order:
+            for name in st_sub['lulc_name'].unique():
+                a1 = st_sub[(st_sub['year']==y1) & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
+                a2 = st_sub[(st_sub['year']==y2) & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
+                if a1 > 0 or a2 > 0:
+                    change_records.append({'ring': ring, 'lulc': name, 'change': a2 - a1})
+        
+        ch_df = pd.DataFrame(change_records)
+        x_pos = np.arange(len(ring_order))
+        w2 = 0.15
+        plot_classes = ['Cropland','Built-up','Water','Tree cover','Grassland']
+        for i, cls in enumerate(plot_classes):
+            vals = [ch_df[(ch_df['lulc']==cls) & (ch_df['ring']==r)]['change'].sum() for r in ring_order]
+            ax.bar(x_pos + i*w2, vals, w2, label=cls, color=lulc_colors.get(cls))
+        
+        ax.axhline(0, color='white', linewidth=0.8)
+        ax.set_xticks(x_pos + 2*w2)
+        ax.set_xticklabels(ring_order)
+        ax.set_title(f'{state}: {y1}→{y2} Change')
+        ax.set_ylabel('Area Change (ha)')
+        if s_idx==0 and e_idx==1: ax.legend(fontsize=8)
 
-fig.suptitle('LULC Change by Class and Buffer Ring — Side-by-Side Comparison', fontsize=16, y=1.02)
+fig.suptitle('LULC Change Comparison: 2016→2020 (Dynamic World) vs 2020→2025 (WorldCover)', fontsize=16, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_change_by_class.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 3.4 Heatmaps — SPLIT BY STATE
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+# 3.4 Heatmaps — Comparing Two Eras (16-20 vs 20-25) — SPLIT BY STATE
+fig, axes = plt.subplots(2, 2, figsize=(18, 11))
 cmap2 = LinearSegmentedColormap.from_list('rg2', ['#ff7b72','#161b22','#3fb950'])
 
-for ax, state in zip([ax1, ax2], states_list):
-    st_sub = t5_nz[t5_nz['state']==state]
-    ch_list = []
-    for ring in ring_order:
-        for name in st_sub['lulc_name'].unique():
-            a20 = st_sub[(st_sub['year']=='2020') & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
-            a25 = st_sub[(st_sub['year']=='2025') & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
-            ch_list.append({'ring': ring, 'lulc': name, 'change': a25-a20})
-    
-    piv = pd.DataFrame(ch_list).pivot_table(index='lulc', columns='ring', values='change')
-    mask = piv.abs().max(axis=1) > 5
-    sns.heatmap(piv[mask], annot=True, fmt=".0f", cmap=cmap2, center=0, ax=ax, cbar_kws={'label':'ha'})
-    ax.set_title(f'{state}: Change (ha)')
+for s_idx, state in enumerate(states_list):
+    for e_idx, (y1, y2) in enumerate([('2016','2020'), ('2020','2025')]):
+        ax = axes[s_idx, e_idx]
+        st_sub = t5_nz[t5_nz['state']==state]
+        ch_list = []
+        for ring in ring_order:
+            for name in st_sub['lulc_name'].unique():
+                a1 = st_sub[(st_sub['year']==y1) & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
+                a2 = st_sub[(st_sub['year']==y2) & (st_sub['ring']==ring) & (st_sub['lulc_name']==name)]['area_ha'].sum()
+                ch_list.append({'ring': ring, 'lulc': name, 'change': a2-a1})
+        
+        piv = pd.DataFrame(ch_list).pivot_table(index='lulc', columns='ring', values='change')
+        mask = piv.abs().max(axis=1) > 10
+        sns.heatmap(piv[mask], annot=True, fmt=".0f", cmap=cmap2, center=0, ax=ax)
+        ax.set_title(f'{state}: {y1}→{y2} Change (ha)')
 
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_change_heatmap.png', bbox_inches='tight')
 plt.show()
 
 # %%
-# 3.8 Radar Charts — SPLIT BY STATE
-fig, axes = plt.subplots(2, 2, figsize=(16, 12), subplot_kw=dict(polar=True))
+# 3.8 Radar Charts — 2016, 2020, 2025 — SPLIT BY STATE
+fig, axes = plt.subplots(2, 3, figsize=(18, 12), subplot_kw=dict(polar=True))
 from math import pi
 radar_classes = ['Cropland','Built-up','Water','Tree cover','Bare/sparse','Grassland']
 
 for s_idx, state in enumerate(states_list):
-    for y_idx, yr in enumerate(['2020','2025']):
+    for y_idx, yr in enumerate(['2016','2020','2025']):
         ax = axes[s_idx, y_idx]
         for r_idx, ring in enumerate(ring_order):
             sub = t5_nz[(t5_nz['state']==state) & (t5_nz['year']==yr) & (t5_nz['ring']==ring)]
+            if sub.empty: continue
             vals = [sub[sub['lulc_name']==c]['area_ha'].sum() for c in radar_classes]
             # Normalize for radar comparison
             max_val = max(vals) if max(vals) > 0 else 1
@@ -419,15 +437,15 @@ for s_idx, state in enumerate(states_list):
             angles = [n / float(len(radar_classes)) * 2 * pi for n in range(len(radar_classes))]
             angles.append(angles[0])
             
-            ax.plot(angles, vals, linewidth=1.5, linestyle='solid', label=ring)
+            ax.plot(angles, vals, linewidth=1.5, label=ring)
             ax.fill(angles, vals, alpha=0.05)
 
         ax.set_xticks([n / float(len(radar_classes)) * 2 * pi for n in range(len(radar_classes))])
-        ax.set_xticklabels(radar_classes, fontsize=9)
-        ax.set_title(f'{state} — {yr}', pad=20)
+        ax.set_xticklabels(radar_classes, fontsize=8)
+        ax.set_title(f'{state} ({yr})', pad=20)
 
-axes[0, 1].legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
-fig.suptitle('LULC Profile by Buffer Ring (Radar) — Punjab vs Uttarakhand', fontsize=16, y=1.02)
+axes[0, 2].legend(loc='upper right', bbox_to_anchor=(1.3, 1.1), fontsize=8)
+fig.suptitle('LULC Profile by Buffer Ring (Radar) — 2016 vs 2020 vs 2025', fontsize=16, y=1.02)
 plt.tight_layout()
 plt.savefig(FIGDIR + 'task5_radar.png', bbox_inches='tight')
 plt.show()
