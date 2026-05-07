@@ -6,7 +6,7 @@
 //
 // THIS SINGLE SCRIPT DOES EVERYTHING:
 //   1. Loads boundaries for both states
-//   2. Loads LULC data (Dynamic World 2016, WorldCover 2020/2025)
+//   2. Loads LULC data (Dynamic World 2016, 2020, 2025)
 //   3. Task 4: Water body extraction, vectorization, size classification
 //   4. Task 5: Major water body buffers, LULC stats per ring
 //   5. Visualization layers for screenshots (maps, water, buffers, change)
@@ -45,56 +45,37 @@ var scale = 10;
 
 // --- Helper: load appropriate dataset for a year & region ---
 function loadLULC(year, geom) {
-  if (year === '2016') {
-    return ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
-      .filterDate('2016-01-01', '2016-12-31')
-      .filterBounds(geom)
-      .select('label')
-      .mode()
-      .clip(geom);
-  } else if (year === '2020') {
-    return ee.ImageCollection('ESA/WorldCover/v100').mosaic().clip(geom);
-  } else {
-    return ee.ImageCollection('ESA/WorldCover/v200').mosaic().clip(geom);
-  }
-}
-
-// --- Helper: load LULC with DW→WC remapping (for Task 5 consistency) ---
-function loadLULC_remapped(year, geom) {
-  if (year === '2016') {
-    var dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
-      .filterDate('2016-01-01', '2016-12-31')
-      .filterBounds(geom).select('label').mode().clip(geom);
-    // Remap DW classes to WC-like codes: 0(water)→80, 4(crops)→40, 6(built)→50, rest→0
-    return dw.remap([0, 4, 6], [80, 40, 50], 0).rename('label');
-  } else if (year === '2020') {
-    return ee.ImageCollection('ESA/WorldCover/v100').mosaic().clip(geom).rename('label');
-  } else {
-    return ee.ImageCollection('ESA/WorldCover/v200').mosaic().clip(geom).rename('label');
-  }
+  var startDate = year + '-01-01';
+  var endDate = year + '-12-31';
+  return ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+    .filterDate(startDate, endDate)
+    .filterBounds(geom)
+    .select('label')
+    .mode()
+    .clip(geom);
 }
 
 // Punjab LULC (native classes for Task 4 water extraction)
 var dw2016_pb = loadLULC('2016', punjabGeom);
-var wc2020_pb = loadLULC('2020', punjabGeom);
-var wc2025_pb = loadLULC('2025', punjabGeom);
+var dw2020_pb = loadLULC('2020', punjabGeom);
+var dw2025_pb = loadLULC('2025', punjabGeom);
 
 // Uttarakhand LULC
 var dw2016_uk = loadLULC('2016', uttarakhandGeom);
-var wc2020_uk = loadLULC('2020', uttarakhandGeom);
-var wc2025_uk = loadLULC('2025', uttarakhandGeom);
+var dw2020_uk = loadLULC('2020', uttarakhandGeom);
+var dw2025_uk = loadLULC('2025', uttarakhandGeom);
 
 
 // ==================== 3. WATER MASKS ====================
 
-// DW class 0 = water; WC class 80 = permanent water
+// DW class 0 = water
 var water2016_pb = dw2016_pb.eq(0).selfMask();
-var water2020_pb = wc2020_pb.eq(80).selfMask();
-var water2025_pb = wc2025_pb.eq(80).selfMask();
+var water2020_pb = dw2020_pb.eq(0).selfMask();
+var water2025_pb = dw2025_pb.eq(0).selfMask();
 
 var water2016_uk = dw2016_uk.eq(0).selfMask();
-var water2020_uk = wc2020_uk.eq(80).selfMask();
-var water2025_uk = wc2025_uk.eq(80).selfMask();
+var water2020_uk = dw2020_uk.eq(0).selfMask();
+var water2025_uk = dw2025_uk.eq(0).selfMask();
 
 
 // ==================== 4. TASK 4: SIZE CLASSIFICATION ====================
@@ -167,7 +148,7 @@ print('Task 4 Summary (Both States):', task4All);
 
 // ==================== 5. TASK 5: BUFFER ANALYSIS ====================
 
-function bufferAnalysis(classified2020, wc2020, wc2025, stateName) {
+function bufferAnalysis(classified2020, dw2016, dw2020, dw2025, stateName) {
   var major2020 = classified2020.filter(ee.Filter.gte('area_ha', 100));
 
   var dissolved = major2020
@@ -182,11 +163,10 @@ function bufferAnalysis(classified2020, wc2020, wc2025, stateName) {
   var ringList = [b2, b4.difference(b2), b8.difference(b4), b10.difference(b8)];
   var labels = ['0-2km','2-4km','4-8km','8-10km'];
 
-  // --- Remapped LULC for consistent class codes in Task 5 ---
   function lulcStats(img, ringGeom, year, ring) {
     var areaImg = ee.Image.pixelArea();
     return ee.FeatureCollection(
-      [10,20,30,40,50,60,70,80,90,95,100].map(function(cls) {
+      [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function(cls) {
         var raw = areaImg.updateMask(img.eq(cls)).reduceRegion({
           reducer: ee.Reducer.sum(),
           geometry: ringGeom, scale: 50, maxPixels: 1e10
@@ -201,40 +181,16 @@ function bufferAnalysis(classified2020, wc2020, wc2025, stateName) {
 
   var stats = ee.FeatureCollection([]);
   for (var i = 0; i < 4; i++) {
-    stats = stats.merge(lulcStats(wc2020, ringList[i], '2020', labels[i]));
-    stats = stats.merge(lulcStats(wc2025, ringList[i], '2025', labels[i]));
+    stats = stats.merge(lulcStats(dw2016, ringList[i], '2016', labels[i]));
+    stats = stats.merge(lulcStats(dw2020, ringList[i], '2020', labels[i]));
+    stats = stats.merge(lulcStats(dw2025, ringList[i], '2025', labels[i]));
   }
-
-  // --- Also get remapped 2016 stats ---
-  var lulc2016_remapped = loadLULC_remapped('2016',
-    stateName === 'Punjab' ? punjabGeom : uttarakhandGeom);
-  var stats2016 = ee.FeatureCollection([]);
-  for (var j = 0; j < 4; j++) {
-    stats2016 = stats2016.merge(
-      (function(img, ringGeom, year, ring) {
-        var areaImg = ee.Image.pixelArea();
-        return ee.FeatureCollection(
-          [0, 10,20,30,40,50,60,70,80,90,95,100].map(function(cls) {
-            var raw = areaImg.updateMask(img.eq(cls)).reduceRegion({
-              reducer: ee.Reducer.sum(),
-              geometry: ringGeom, scale: 50, maxPixels: 1e10
-            }).get('area');
-            var safeArea = ee.Number(ee.Algorithms.If(raw, raw, 0));
-            return ee.Feature(null, {
-              state: stateName, year: year, ring: ring, class: cls, area: safeArea
-            });
-          })
-        );
-      })(lulc2016_remapped, ringList[j], '2016', labels[j])
-    );
-  }
-  stats = stats.merge(stats2016);
 
   return {stats: stats, ringList: ringList, labels: labels, major: major2020, dissolved: dissolved};
 }
 
-var pbBuf = bufferAnalysis(c2020_pb, wc2020_pb, wc2025_pb, 'Punjab');
-var ukBuf = bufferAnalysis(c2020_uk, wc2020_uk, wc2025_uk, 'Uttarakhand');
+var pbBuf = bufferAnalysis(c2020_pb, dw2016_pb, dw2020_pb, dw2025_pb, 'Punjab');
+var ukBuf = bufferAnalysis(c2020_uk, dw2016_uk, dw2020_uk, dw2025_uk, 'Uttarakhand');
 
 var task5All = pbBuf.stats.merge(ukBuf.stats);
 print('Task 5 Stats (Both States):', task5All);
@@ -243,10 +199,9 @@ print('Task 5 Stats (Both States):', task5All);
 // ==================== 6. VISUALIZATION LAYERS ====================
 // Toggle these in the Layers panel to take screenshots for slides
 
-var wcVis = {
-  min: 10, max: 100,
-  palette: ['006400','ffbb22','ffff4c','f096ff','fa0000',
-            'b4b4b4','f0f0f0','0064c8','0096a0','00cf75','fae6a0']
+var dwVis = {
+  min: 0, max: 8,
+  palette: ['#419BDF', '#397D49', '#88B053', '#7A87C6', '#E49635', '#DFC35A', '#C4281B', '#A59B8F', '#B39FE1']
 };
 
 // --- Boundaries ---
@@ -257,19 +212,19 @@ Map.addLayer(uttarakhand.style({color: '#FFD700', fillColor: '00000000', width: 
 
 // --- Punjab water layers ---
 Map.addLayer(water2016_pb, {palette: ['#0000FF']}, 'PB: Water 2016 (DW)', false);
-Map.addLayer(water2020_pb, {palette: ['#1E90FF']}, 'PB: Water 2020 (WC)', false);
-Map.addLayer(water2025_pb, {palette: ['#00CED1']}, 'PB: Water 2025 (WC)', false);
+Map.addLayer(water2020_pb, {palette: ['#1E90FF']}, 'PB: Water 2020 (DW)', false);
+Map.addLayer(water2025_pb, {palette: ['#00CED1']}, 'PB: Water 2025 (DW)', false);
 
 // --- Uttarakhand water layers ---
 Map.addLayer(water2016_uk, {palette: ['#0000FF']}, 'UK: Water 2016 (DW)', false);
-Map.addLayer(water2020_uk, {palette: ['#1E90FF']}, 'UK: Water 2020 (WC)', false);
-Map.addLayer(water2025_uk, {palette: ['#00CED1']}, 'UK: Water 2025 (WC)', false);
+Map.addLayer(water2020_uk, {palette: ['#1E90FF']}, 'UK: Water 2020 (DW)', false);
+Map.addLayer(water2025_uk, {palette: ['#00CED1']}, 'UK: Water 2025 (DW)', false);
 
-// --- WorldCover LULC ---
-Map.addLayer(wc2020_pb, wcVis, 'PB: WorldCover 2020', false);
-Map.addLayer(wc2025_pb, wcVis, 'PB: WorldCover 2025', false);
-Map.addLayer(wc2020_uk, wcVis, 'UK: WorldCover 2020', false);
-Map.addLayer(wc2025_uk, wcVis, 'UK: WorldCover 2025', false);
+// --- Dynamic World LULC ---
+Map.addLayer(dw2020_pb, dwVis, 'PB: DW 2020', false);
+Map.addLayer(dw2025_pb, dwVis, 'PB: DW 2025', false);
+Map.addLayer(dw2020_uk, dwVis, 'UK: DW 2020', false);
+Map.addLayer(dw2025_uk, dwVis, 'UK: DW 2025', false);
 
 // --- Major water bodies ---
 Map.addLayer(pbBuf.major, {color: 'yellow'}, 'PB: Major Water Bodies (≥100ha)', true);
@@ -308,31 +263,6 @@ Export.table.toDrive({
   description: 'Task5_LULC_Buffers_BothStates',
   fileFormat: 'CSV'
 });
-
-
-// ==================== 8. SCREENSHOTS GUIDE ====================
-// Take these screenshots from the map for your slides:
-//
-// SLIDE 3 (Study Area):
-//   → Turn on: Punjab Boundary + Uttarakhand Boundary + base map
-//   → Zoom to show both states
-//
-// SLIDE 7 (Water Bodies):
-//   → Turn on: PB: Water 2020 (WC) + Punjab Boundary
-//   → Then: UK: Water 2020 (WC) + Uttarakhand Boundary
-//
-// SLIDE 8 (Major Water Bodies):
-//   → Turn on: PB: Major Water Bodies + UK: Major Water Bodies
-//
-// SLIDE 10 (Buffer Rings):
-//   → Turn on: PB Ring: 0-2km + 2-4km + 4-8km + 8-10km + Major WBs
-//   → Same for UK
-//
-// SLIDE 12 (Water Change):
-//   → Turn on: PB: Water Lost + Water Gained
-//   → Same for UK
-//
-// ============================================================
 
 print('✅ All layers loaded for Punjab & Uttarakhand.');
 print('✅ Toggle layers in the Layers panel and take screenshots.');

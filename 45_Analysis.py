@@ -48,49 +48,27 @@ t4_raw = pd.read_csv('Task4_SizeClass_BothStates.csv')
 t4 = t4_raw.rename(columns={'class': 'size_class', 'total_area': 'area_ha'})[['state', 'year', 'size_class', 'count', 'area_ha']].copy()
 t4['year'] = t4['year'].astype(str)
 
-wc_names = {10:'Tree cover',20:'Shrubland',30:'Grassland',40:'Cropland',
-             50:'Built-up',60:'Bare/sparse',70:'Snow/ice',80:'Water',
-             90:'Herbaceous wetland',95:'Mangroves',100:'Moss/lichen'}
+dw_names = {0:'Water', 1:'Tree cover', 2:'Grassland', 3:'Flooded vegetation', 4:'Cropland',
+            5:'Shrubland', 6:'Built-up', 7:'Bare/sparse', 8:'Snow/ice'}
 
 ring_order = ['0-2km','2-4km','4-8km','8-10km']
 states_list = ['Punjab', 'Uttarakhand']
 
 # %%
-# --- Task 5 from xlsx (includes BOTH Punjab & Uttarakhand, all 3 years) ---
-import openpyxl, json, re
+# --- Task 5 Data (Multi-state CSV from GEE) ---
+t5_raw = pd.read_csv('Task5_LULC_Buffers_BothStates.csv')
 
-wb = openpyxl.load_workbook('45_results.xlsx')
-ws = wb[wb.sheetnames[0]]
-rows_xlsx = list(ws.iter_rows(values_only=True))
-header = rows_xlsx[0]
-
-t5_all_records = []
-for row in rows_xlsx[1:]:
-    d = dict(zip(header, row))
-    # Include BOTH states (Punjab and Uttarakhand)
-    stats_str = str(d['stats'])
-    # parse {key=val, key=val} format
-    pairs = re.findall(r'(\d+)=([\d.E+-]+)', stats_str)
-    for code_str, val_str in pairs:
-        t5_all_records.append({
-            'state': d['state'],
-            'year': str(int(d['year'])),
-            'ring': d['ring'],
-            'lulc_code': int(code_str),
-            'pixel_count': float(val_str),
-        })
-
-t5x = pd.DataFrame(t5_all_records)
-# The xlsx stats are pixel counts at scale=100m, so each pixel = 100*100 = 10000 sq m = 1 ha
-t5x['area_ha'] = t5x['pixel_count']  # each pixel at 100m scale = 1 ha
-t5x['lulc_name'] = t5x['lulc_code'].map(wc_names)
+# The CSV has columns: system:index, area, class, ring, state, year, .geo
+# area is in square meters. We need area_ha.
+t5x = t5_raw[['state', 'year', 'ring', 'class', 'area']].copy()
+t5x = t5x.rename(columns={'class': 'lulc_code'})
+t5x['year'] = t5x['year'].astype(str)
+t5x['area_ha'] = t5x['area'] / 10000.0
+t5x['lulc_name'] = t5x['lulc_code'].map(dw_names)
 t5x['ring'] = pd.Categorical(t5x['ring'], categories=ring_order, ordered=True)
 
-# For 2016 DW remap: 0→unclassified mapped as "Tree cover"(10) in the stats
-# Actually in DW remap: 0=water→80, 4=crops→40, 6=builtup→50, everything else→0
-# The "0" class in 2016 represents all other DW classes lumped together
-# Let's label it properly
-t5x.loc[(t5x['year']=='2016') & (t5x['lulc_code']==0), 'lulc_name'] = 'Other (DW unclassed)'
+# Since we now use Dynamic World for all years natively, no class remapping is needed.
+# t5x uses Dynamic World class IDs 0-8 natively.
 
 print(f"\nxlsx records — total: {len(t5x)}")
 for st in t5x['state'].unique():
@@ -305,19 +283,17 @@ states_list = ['Punjab', 'Uttarakhand']
 # %%
 # 3.2 Stacked Bar — LULC Composition per Ring (2020 vs 2025) — SPLIT BY STATE
 lulc_colors = {
-    'Tree cover':'#2ea043', 'Shrubland':'#8b6914', 'Grassland':'#a5d6a7',
-    'Cropland':'#f9c74f', 'Built-up':'#ff7b72', 'Bare/sparse':'#d4a574',
-    'Snow/ice':'#e0e0e0', 'Water':'#58a6ff', 'Herbaceous wetland':'#7ecbb0',
-    'Mangroves':'#1b5e20', 'Moss/lichen':'#9e9e9e', 'Other (DW unclassed)':'#444444'
+    'Water':'#419BDF', 'Tree cover':'#397D49', 'Grassland':'#88B053',
+    'Flooded vegetation':'#7A87C6', 'Cropland':'#E49635', 'Shrubland':'#DFC35A',
+    'Built-up':'#C4281B', 'Bare/sparse':'#A59B8F', 'Snow/ice':'#B39FE1'
 }
 
 # %%
 # 3.2 Stacked Bar — LULC Composition — 2016, 2020, 2025 — SPLIT BY STATE
 lulc_colors = {
-    'Tree cover':'#2ea043', 'Shrubland':'#8b6914', 'Grassland':'#a5d6a7',
-    'Cropland':'#f9c74f', 'Built-up':'#ff7b72', 'Bare/sparse':'#d4a574',
-    'Snow/ice':'#e0e0e0', 'Water':'#58a6ff', 'Herbaceous wetland':'#7ecbb0',
-    'Mangroves':'#1b5e20', 'Moss/lichen':'#9e9e9e', 'Other (DW unclassed)':'#444444'
+    'Water':'#419BDF', 'Tree cover':'#397D49', 'Grassland':'#88B053',
+    'Flooded vegetation':'#7A87C6', 'Cropland':'#E49635', 'Shrubland':'#DFC35A',
+    'Built-up':'#C4281B', 'Bare/sparse':'#A59B8F', 'Snow/ice':'#B39FE1'
 }
 
 fig, axes = plt.subplots(2, 3, figsize=(18, 11), sharey=True)
