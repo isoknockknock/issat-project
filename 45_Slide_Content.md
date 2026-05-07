@@ -186,17 +186,17 @@ var ring = b4.difference(b2); // Creates donut-shaped 2-4km ring
 ---
 
 ## Slide 12: Task 5 — Change Analysis
-**Title:** LULC Change 2020→2025 Around Water Bodies
+**Title:** LULC Change 2016→2025 Around Water Bodies
 
 **Visuals:** `comp_urban_heatmap.png` (Comparative Urban Density) + `task5_change_by_class.png`
 
-**Key Changes — Punjab (2020→2025):**
+**Key Decade Changes — Punjab (2016→2025):**
 | Class | 0–2 km | 2–4 km | 4–8 km | 8–10 km |
 |-------|--------|--------|--------|---------|
-| Tree cover | +30.3% | +31.2% | +34.1% | +47.0% |
-| Built-up | +9.0% | +10.9% | +8.7% | +8.4% |
-| Water | −33.5% | −40.6% | −22.4% | −19.7% |
-| Bare/sparse | −50.2% | −84.1% | −86.6% | −85.6% |
+| Tree cover | −3.3% | +4.6% | +9.6% | +15.5% |
+| Built-up | +15.6% | +17.5% | +18.1% | +16.3% |
+| Water | +11.3% | +11.7% | +1.8% | +3.1% |
+| Bare/sparse | +4.1% | −79.7% | −84.8% | −87.1% |
 
 **Uttarakhand:** Different change dynamics — forest cover changes more ecologically significant; built-up expansion concentrated in Terai/plains districts.
 
@@ -239,7 +239,7 @@ var ring = b4.difference(b2); // Creates donut-shaped 2-4km ring
 
 **5 Major Findings:**
 1. 📉 **Significant water body area lost** in both states (2016–2025) — crisis confirmed from satellite data
-2. 🏗️ **Built-up expansion 8–11%** in all buffer zones — urbanization encroaching on water peripheries across both Punjab and Uttarakhand
+2. 🏗️ **Built-up expansion 15–18%** in all buffer zones — urbanization encroaching on water peripheries across both Punjab and Uttarakhand
 3. 🔍 **Small ponds disappearing fastest** — <1 ha class lost 65% of water bodies in Punjab
 4. 📊 **Strong urban-water negative correlation** (r = −0.72) — where cities grow, water shrinks (both states)
 5. 🎯 **0–2 km zone most stressed** in both states — immediate water body margins face greatest pressure
